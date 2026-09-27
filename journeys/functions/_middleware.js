@@ -1,17 +1,18 @@
 // Participants only. Every page and API call needs one of:
-//   - the conference link's key (?k=…), shared with the QR code in the conference Slack,
-//   - the pass cookie that link sets (it names the key it came from, so a new key
-//     locks out old passes),
+//   - the key of one of the participant links (?k=…), shared with its QR code in the
+//     conference Slack or on a poster,
+//   - the pass cookie a link sets (it names the key it came from, so resetting or
+//     deleting a link locks out its passes and no others),
 //   - a participant session (someone who already signed in),
 //   - an admin token or admin cookie.
-// The key lives in the participant_key table. A super admin creates and resets
-// it, and gets the link and QR code, in the console (/console).
+// The keys live in the participant_key table, up to 5. A super admin creates,
+// labels, resets and deletes them, and gets each link and QR code, in the console.
 //
-// Fails closed on a real domain: until a key exists everything is locked. On
-// localhost the gate stays off until a key is created.
+// Fails closed on a real domain: until a link exists everything is locked. On
+// localhost the gate stays off until a link is created.
 import {
   requireSecret, sha256Hex, sameHex, signSession, verifySession, readCookie,
-  adminIdentity, PASS_COOKIE, passCookieHeader, participantKey,
+  adminIdentity, PASS_COOKIE, passCookieHeader, participantKeys, keyTag, countParticipantOpen,
 } from "./api/_lib.js";
 
 // Reachable without the key: the privacy notice, the stylesheet the locked page
@@ -21,15 +22,15 @@ const OPEN = [/^\/privacy(\.html)?$/, /^\/styles\.css$/, /^\/console(\.html|\.js
 
 const isLocal = url => url.hostname === "localhost" || url.hostname === "127.0.0.1";
 
-export async function onRequest({ request, env, next }) {
+export async function onRequest({ request, env, next, waitUntil }) {
   const url = new URL(request.url);
   if (OPEN.some(re => re.test(url.pathname))) return next();
 
-  const keyHash = (await participantKey(env))?.hash;
-  if (!keyHash) return isLocal(url) ? next() : locked(url, "unset");
+  const keys = await participantKeys(env);
+  if (!keys.length) return isLocal(url) ? next() : locked(url, "unset");
   let secret;
   try { secret = requireSecret(request, env); } catch { return locked(url, "unset"); }
-  const tag = keyHash.slice(0, 16);
+  const tags = new Set(keys.map(keyTag));
 
   const key = url.searchParams.get("k");
   if (key !== null) {
@@ -37,18 +38,22 @@ export async function onRequest({ request, env, next }) {
     // screenshots or links people copy from the app.
     url.searchParams.delete("k");
     const clean = url.pathname + url.search;
-    if (sameHex(await sha256Hex(key.trim()), keyHash)) {
-      const pass = await signSession({ pk: tag }, secret);
+    const hash = await sha256Hex(key.trim());
+    const hit = keys.find(k => sameHex(hash, k.hash));
+    if (hit) {
+      const count = countParticipantOpen(env, hit.id);
+      if (waitUntil) waitUntil(count); else await count;
+      const pass = await signSession({ pk: keyTag(hit) }, secret);
       return redirect(clean, passCookieHeader(request, pass));
     }
-    // An old link: fine for someone already in, a dead end for anyone else.
-    return (await allowed(request, env, secret, tag)) ? redirect(clean) : locked(url, "stale");
+    // An old or deleted link: fine for someone already in, a dead end for anyone else.
+    return (await allowed(request, env, secret, tags)) ? redirect(clean) : locked(url, "stale");
   }
-  return (await allowed(request, env, secret, tag)) ? next() : locked(url);
+  return (await allowed(request, env, secret, tags)) ? next() : locked(url);
 }
 
-async function allowed(request, env, secret, tag) {
-  if ((await verifySession(readCookie(request, PASS_COOKIE), secret))?.pk === tag) return true;
+async function allowed(request, env, secret, tags) {
+  if (tags.has((await verifySession(readCookie(request, PASS_COOKIE), secret))?.pk)) return true;
   if ((await verifySession(readCookie(request), secret))?.pid) return true;
   return !!(await adminIdentity(request, env, { allowDev: false }));
 }
@@ -59,8 +64,8 @@ const redirect = (location, cookie) => new Response(null, {
 
 const MESSAGES = {
   closed: "Tokens of the Future is for HCOMP + CI 2026 participants. Open it from the link or QR code posted in the conference Slack.",
-  stale: "This link has been replaced. Open the latest link or QR code posted in the conference Slack.",
-  unset: "The app is not open yet. The organizers still have to create the participant link.",
+  stale: "This link no longer works. Open the latest link or QR code posted in the conference Slack.",
+  unset: "The app is not open yet. The organizers still have to create a participant link.",
 };
 
 function locked(url, why = "closed") {

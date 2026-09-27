@@ -80,28 +80,68 @@ export const clearAdminCookieHeader = request => `${ADMIN_COOKIE}=; Path=/; Http
 export const PASS_COOKIE = "cwj_pass";
 export const passCookieHeader = (request, value) => `${PASS_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
 
-// The participant link's key, from the participant_key table, or null if none
-// was created yet (or the migration has not run). Cached per isolate for 15
-// seconds, so a reset reaches every isolate within that.
+// Participant links: up to MAX_PARTICIPANT_LINKS rows in participant_key, each
+// with its own key, label and QR code (say one for the Slack, one for a poster),
+// so one can be reset or deleted without cutting off the others. Oldest first;
+// [] if none was created yet (or the migration has not run). Cached per isolate
+// for 15 seconds, so a reset or delete reaches every isolate within that.
+export const MAX_PARTICIPANT_LINKS = 5;
 let keyCache = null;
-export async function participantKey(env) {
-  if (keyCache && Date.now() - keyCache.at < 15000) return keyCache.value;
-  const row = await env.DB.prepare("SELECT key, created_at, created_by FROM participant_key ORDER BY id DESC LIMIT 1").first().catch(() => null);
-  const value = row ? { ...row, hash: await sha256Hex(row.key) } : null;
+// The console passes { fresh: true }, so it shows current open counts.
+export async function participantKeys(env, { fresh = false } = {}) {
+  if (!fresh && keyCache && Date.now() - keyCache.at < 15000) return keyCache.value;
+  const { results = [] } = await env.DB.prepare(
+    "SELECT id, key, label, opens, created_at, created_by FROM participant_key ORDER BY id"
+  ).all().catch(() => ({ results: [] }));
+  const value = await Promise.all(results.map(async r => ({ ...r, hash: await sha256Hex(r.key) })));
   keyCache = { at: Date.now(), value };
   return value;
 }
+// The pass cookie names the key it came from by this tag, so resetting or
+// deleting one link ends only the passes it gave out.
+export const keyTag = k => k.hash.slice(0, 16);
 
-// A new key (32 random bytes, 43 characters): the old link, QR code and passes stop working.
-export async function resetParticipantKey(env, by) {
-  const key = b64url(crypto.getRandomValues(new Uint8Array(32)));
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM participant_key"),
-    env.DB.prepare("INSERT INTO participant_key (key, created_by) VALUES (?1, ?2)").bind(key, by),
-  ]);
+const newKey = () => b64url(crypto.getRandomValues(new Uint8Array(32)));  // 32 random bytes, 43 characters
+const linkLabel = s => clean(s, 40);
+
+// A new link, or null when there are already MAX_PARTICIPANT_LINKS. The count
+// check and the insert are one statement, so two clicks cannot make a sixth.
+export async function createParticipantKey(env, by, label) {
+  const { meta } = await env.DB.prepare(
+    `INSERT INTO participant_key (key, label, created_by)
+     SELECT ?1, COALESCE(NULLIF(?2, ''), 'Link ' || (COALESCE(MAX(id), 0) + 1)), ?3 FROM participant_key
+     HAVING COUNT(*) < ?4`
+  ).bind(newKey(), linkLabel(label), by, MAX_PARTICIPANT_LINKS).run();
   keyCache = null;
-  return participantKey(env);
+  return meta.changes > 0;
 }
+
+// A new key for one link, keeping its label: its old address, QR code and passes stop working.
+export async function resetParticipantKey(env, id, by) {
+  const { meta } = await env.DB.prepare(
+    "UPDATE participant_key SET key = ?1, created_by = ?2, opens = 0, created_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?3"
+  ).bind(newKey(), by, id).run();
+  keyCache = null;
+  return meta.changes > 0;
+}
+
+export async function deleteParticipantKey(env, id) {
+  const { meta } = await env.DB.prepare("DELETE FROM participant_key WHERE id = ?1").bind(id).run();
+  keyCache = null;
+  return meta.changes > 0;
+}
+
+export async function renameParticipantKey(env, id, label) {
+  const name = linkLabel(label);
+  if (!name) return false;
+  const { meta } = await env.DB.prepare("UPDATE participant_key SET label = ?1 WHERE id = ?2").bind(name, id).run();
+  keyCache = null;
+  return meta.changes > 0;
+}
+
+// How many times a link was opened, so organizers can tell which QR code people use.
+export const countParticipantOpen = (env, id) =>
+  env.DB.prepare("UPDATE participant_key SET opens = opens + 1 WHERE id = ?1").bind(id).run().catch(() => {});
 
 export const participantLink = (request, k) => `${new URL(request.url).origin}/?k=${k.key}`;
 

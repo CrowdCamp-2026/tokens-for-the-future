@@ -54,6 +54,44 @@ check("after a reset, the old pass is refused", (await fetch(ORIGIN + "/", { hea
 PASS = set.split(";")[0];
 check("the new link opens the app", res.status === 302 && (await fetch(ORIGIN + "/", { headers: { cookie: PASS } })).status === 200);
 
+// Several links (up to 5), each with its own key, label and QR code.
+const listLinks = async () => (await fetch(B + "/admin?participant_links", { headers: SUPER })).json();
+const opensApp = pass => fetch(ORIGIN + "/", { headers: { cookie: pass } }).then(x => x.status === 200);
+let L = await listLinks();
+check("the super admin lists the links, max 5", Array.isArray(L.links) && L.max === 5 && L.links[0]?.link === link, JSON.stringify(L).slice(0, 120));
+check("an admin cannot list the links", (await fetch(B + "/admin?participant_links", { headers: ADMIN })).status === 403);
+check("an admin cannot create a link", (await post("/admin", { create_participant_link: true, label: "Nope" }, ADMIN)).status === 403);
+let lr = await post("/admin", { create_participant_link: true, label: "  Registration poster " }, SUPER);
+L = await lr.json();
+const poster = L.links?.find(x => x.label === "Registration poster");
+check("create a labelled link", lr.status === 201 && !!poster && poster.link !== link, JSON.stringify(L.links?.map(x => x.label)));
+({ res, set } = await openLink(poster.link));
+const posterPass = set.split(";")[0];
+check("the second link opens the app too", res.status === 302 && await opensApp(posterPass));
+L = await listLinks();
+check("opening a link counts it", L.links.find(x => x.id === poster.id)?.opens === 1, String(L.links.find(x => x.id === poster.id)?.opens));
+while (L.links.length < L.max) L = await (await post("/admin", { create_participant_link: true }, SUPER)).json();
+check("unlabelled links get a default label", L.links.every(x => x.label), JSON.stringify(L.links.map(x => x.label)));
+lr = await post("/admin", { create_participant_link: true, label: "One too many" }, SUPER);
+check("a sixth link is refused", lr.status === 409 && (await lr.json()).links.length === 5);
+lr = await post("/admin", { reset_participant_link: poster.id }, SUPER);
+L = await lr.json();
+check("reset one link by id", lr.status === 200 && L.links.find(x => x.id === poster.id)?.link !== poster.link);
+check("after its reset, that link's pass is refused", !await opensApp(posterPass));
+check("the other links' passes still work", await opensApp(PASS));
+lr = await post("/admin", { rename_participant_link: L.links[0].id, label: "Conference Slack" }, SUPER);
+check("rename a link", lr.status === 200 && (await lr.json()).links[0].label === "Conference Slack");
+check("an empty label is refused", (await post("/admin", { rename_participant_link: L.links[0].id, label: " " }, SUPER)).status === 400);
+({ res, set } = await openLink(L.links.find(x => x.id === poster.id).link));
+const posterPass2 = set.split(";")[0];
+lr = await post("/admin", { delete_participant_link: poster.id }, SUPER);
+check("delete a link", lr.status === 200 && !(await lr.json()).links.some(x => x.id === poster.id));
+check("after its deletion, that link's pass is refused", !await opensApp(posterPass2));
+check("deleting an unknown link says so", (await post("/admin", { delete_participant_link: 999999 }, SUPER)).status === 404);
+for (const x of (await listLinks()).links.slice(1)) await post("/admin", { delete_participant_link: x.id }, SUPER);
+L = await listLinks();
+check("back to one link, and its pass still works", L.links.length === 1 && L.links[0].link === link && await opensApp(PASS));
+
 let r = await call("x", "/notes", { item_id: 269094, topic: "platforms", kind: "comment", relation: "happened", point: "hello there" });
 check("note without sign-in is refused", r.status === 401, r.data.error);
 r = await call("x", "/join", { name: "A", affiliation: "", contact: "nope" });

@@ -1,6 +1,7 @@
 import {
   adminIdentity, requireSecret, signSession, adminCookieHeader, clearAdminCookieHeader,
-  participantKey, resetParticipantKey, participantLink,
+  participantKeys, createParticipantKey, resetParticipantKey, deleteParticipantKey, renameParticipantKey,
+  participantLink, MAX_PARTICIPANT_LINKS,
 } from "./_lib.js";
 
 // Organizer-only endpoints. Send your personal token: Authorization: Bearer <token>
@@ -15,13 +16,48 @@ import {
 // GET  /api/admin?table=feedback       feedback on the app, with +1 counts
 // POST /api/admin {id, hidden}         hide or restore a note
 // POST /api/admin {feedback_id, status} set feedback status: open, planned, done, wontfix
-// GET  /api/admin?participant_link     super only: the link that opens the app { link, created_at, created_by }
-// POST /api/admin {reset_participant_link: true}  super only: a new key; the old link and QR code stop working
+// Participant links, super only (up to MAX_PARTICIPANT_LINKS, each with its own key and QR code):
+// GET  /api/admin?participant_links                  { links: [{id, label, link, opens, created_at, created_by}], max }
+// POST /api/admin {create_participant_link: true, label}   a new link (refused once there are MAX)
+// POST /api/admin {reset_participant_link: <id>}     a new key for that link: its old address, QR code and passes stop working
+// POST /api/admin {delete_participant_link: <id>}    delete that link: its QR code and passes stop working
+// POST /api/admin {rename_participant_link: <id>, label}
+// The POSTs answer with the same list. Older single-link forms still work:
+// GET ?participant_link gives the oldest link, and {reset_participant_link: true} resets it (or creates one).
 const denied = () => new Response("Not allowed.", { status: 403 });
 const superOnly = () => new Response("Super admin only.", { status: 403 });
-const linkJson = async (request, k) => new Response(JSON.stringify(k ? { link: participantLink(request, k), created_at: k.created_at, created_by: k.created_by } : { link: null }), {
-  headers: { "content-type": "application/json", "cache-control": "no-store" },
-});
+const asJson = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+const linkView = (request, k) => ({ id: k.id, label: k.label, link: participantLink(request, k), opens: k.opens, created_at: k.created_at, created_by: k.created_by });
+const linksJson = async (request, env, status = 200, error) =>
+  asJson({ links: (await participantKeys(env, { fresh: true })).map(k => linkView(request, k)), max: MAX_PARTICIPANT_LINKS, ...(error ? { error } : {}) }, status);
+const oneLinkJson = async (request, env) => { const k = (await participantKeys(env))[0]; return asJson(k ? linkView(request, k) : { link: null }); };
+
+// Link changes, or null when the body is not about links.
+async function linkAction(request, env, who, body) {
+  const id = v => Number.isInteger(v) ? v : null;
+  if (body.create_participant_link) {
+    if (who.role !== "super") return superOnly();
+    return (await createParticipantKey(env, who.email, body.label))
+      ? linksJson(request, env, 201)
+      : linksJson(request, env, 409, `There are already ${MAX_PARTICIPANT_LINKS} links. Delete one first.`);
+  }
+  if (body.reset_participant_link === true) {  // the single-link form
+    if (who.role !== "super") return superOnly();
+    const first = (await participantKeys(env))[0];
+    if (first) await resetParticipantKey(env, first.id, who.email); else await createParticipantKey(env, who.email, "");
+    return oneLinkJson(request, env);
+  }
+  for (const [field, act] of [["reset_participant_link", i => resetParticipantKey(env, i, who.email)],
+                              ["delete_participant_link", i => deleteParticipantKey(env, i)],
+                              ["rename_participant_link", i => renameParticipantKey(env, i, body.label)]]) {
+    if (body[field] === undefined) continue;
+    if (who.role !== "super") return superOnly();
+    if (id(body[field]) === null) return asJson({ error: `Send {"${field}": <link id>}.` }, 400);
+    if (field === "rename_participant_link" && !String(body.label ?? "").trim()) return linksJson(request, env, 400, "Give the link a label.");
+    return (await act(body[field])) ? linksJson(request, env) : linksJson(request, env, 404, "That link no longer exists.");
+  }
+  return null;
+}
 
 
 
@@ -58,7 +94,8 @@ export async function onRequestGet({ request, env }) {
   if (!who) return denied();
   const params = new URL(request.url).searchParams;
   if (params.has("whoami")) return new Response(JSON.stringify({ email: who.email, role: who.role, via: who.via }), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
-  if (params.has("participant_link")) return who.role === "super" ? linkJson(request, await participantKey(env)) : superOnly();
+  if (params.has("participant_links")) return who.role === "super" ? linksJson(request, env) : superOnly();
+  if (params.has("participant_link")) return who.role === "super" ? oneLinkJson(request, env) : superOnly();
   const q = QUERIES[params.get("table") || "notes"];
   if (!q) return new Response("Unknown table.", { status: 400 });
   const { results } = await env.DB.prepare(typeof q.sql === "function" ? q.sql(who) : q.sql).all();
@@ -81,10 +118,8 @@ export async function onRequestPost({ request, env }) {
       headers: { "content-type": "application/json", "cache-control": "no-store", "Set-Cookie": adminCookieHeader(request, value) },
     });
   }
-  if (body.reset_participant_link) {
-    if (who.role !== "super") return superOnly();
-    return linkJson(request, await resetParticipantKey(env, who.email));
-  }
+  const linked = await linkAction(request, env, who, body);
+  if (linked) return linked;
   if (body.feedback_id !== undefined) {
     if (!Number.isInteger(body.feedback_id) || !STATUSES.includes(body.status))
       return new Response(`Send {"feedback_id": <id>, "status": "${STATUSES.join('" | "')}"}.`, { status: 400 });

@@ -40,11 +40,13 @@ A splash page asks for **name, affiliation, and an email or phone number** (with
 
 ## Participants only
 
-The whole app (pages, `data.json`, the API) is closed to anyone who has not opened the **participant link**, which is shared with its QR code in the conference Slack. The link carries a 43-character key (`/?k=…`, 32 random bytes). Opening it sets a signed, HttpOnly pass cookie for five days and redirects to the same page without the key, so the key does not stay in the address bar or in links people copy from the app. Without a pass, a participant session or an admin token, every request gets a short "for conference participants" page (or a JSON 403 from the API).
+The whole app (pages, `data.json`, the API) is closed to anyone who has not opened a **participant link**, shared with its QR code in the conference Slack or on a poster at the venue. Each link carries a 43-character key (`/?k=…`, 32 random bytes). Opening it sets a signed, HttpOnly pass cookie for five days and redirects to the same page without the key, so the key does not stay in the address bar or in links people copy from the app. Without a pass, a participant session or an admin token, every request gets a short "for conference participants" page (or a JSON 403 from the API).
 
-**The super admin manages the link in the console** (`/console`, “Participant link”): see the link and its QR code, copy the link or a ready-made Slack message, download the QR code as PNG or SVG, and **reset** it (two clicks). A reset makes a new key: the old link, QR code and passes stop working within 15 seconds, and people already signed in stay in. Admins do not see this panel, and the API refuses them (`GET /api/admin?participant_link`, `POST /api/admin {"reset_participant_link": true}`).
+**The super admin manages up to 5 links in the console** (`/console`, “Participant links”), one per place they are posted, each with its own key, label and QR code. For each link: rename its label, see how many times it was opened, copy the link or a ready-made Slack message, download the QR code as PNG or SVG, **reset** it or **delete** it (both take two clicks). A reset gives that link a new key; a delete removes it. Either way, that link's old address, QR code and passes stop working within 15 seconds, the other links keep working, and people already signed in stay in. Admins do not see this panel, and the API refuses them.
 
-- The key lives in the `participant_key` table (migration `0006`), in clear, so the console can show the link again. It is a shared link posted in Slack, not a personal secret.
+API (super admin only): `GET /api/admin?participant_links` → `{links: [{id, label, link, opens, created_at, created_by}], max}`; `POST /api/admin` with `{"create_participant_link": true, "label": "…"}` (409 once there are 5), `{"reset_participant_link": <id>}`, `{"delete_participant_link": <id>}` or `{"rename_participant_link": <id>, "label": "…"}`, each answering with the list. The single-link forms still work: `GET ?participant_link` gives the oldest link and `{"reset_participant_link": true}` resets it.
+
+- The keys live in the `participant_key` table (migration `0005`; labels and open counts from `0007`), in clear, so the console can show each link again. They are shared links posted in Slack or on paper, not personal secrets. The open count is a single number per link and says nothing about who opened it.
 - Until the super admin creates the first link, the app is locked on a real domain, and open on localhost.
 - Always open: `privacy.html`, `styles.css`, `/console` and its QR library (`vendor/qrcode.min.js`), `/api/admin` (checks admin tokens itself) and the localhost-only `/api/dev/*`.
 - A Slack card with the title around the QR code (1200×630): `node build/make-participant-card.mjs "<link from the console>"` writes `participant-card.local.png` and `participant-qr.local.svg`, both git-ignored.
@@ -157,7 +159,7 @@ node build/make-admin-tokens.mjs super:<you> admin:<a> admin:<b>
 npx wrangler pages secret put ADMIN_TOKENS --project-name crowdwork-journeys < admin-tokens.secret.json
 npx wrangler pages secret put SESSION_SECRET --project-name crowdwork-journeys   # a long random string
 npx wrangler pages deploy
-# then open https://<your-project>.pages.dev/console as the super admin and create the participant link
+# then open https://<your-project>.pages.dev/console as the super admin and create a participant link
 ```
 
 If `crowdwork-journeys.pages.dev` is taken or you pick another name, rebuild the QR codes with the real URL:

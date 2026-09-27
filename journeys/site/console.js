@@ -8,7 +8,7 @@
   const STATUS = { open: "Open", planned: "Planned", done: "Done", wontfix: "Won’t do" };
   const horizon = m => m === null || m === undefined ? "" : m === 0 ? "Already" : m === 61 ? "5+ yr" : m === 999 ? "Never" : m < 12 ? `${m} mo` : `${m / 12} yr`;
 
-  let token = null, tab = "feedback", role = null, link = null;
+  let token = null, tab = "feedback", role = null;
   let rows = { feedback: [], notes: [], participants: [] };
   let items = {}, topics = {};
 
@@ -67,34 +67,61 @@
     }
   }
 
-  // ---------- Participant link (super admin only) ----------
+  // ---------- Participant links (super admin only) ----------
+  // Up to `max` links, each with its own key, label and QR code.
+  let links = [], maxLinks = 5;
+
   async function loadLink() {
-    $("c-link").hidden = role !== "super";
+    $("c-links").hidden = role !== "super";
     if (role !== "super") return;
-    link = await (await admin("?participant_link")).json();
-    renderLink();
+    setLinks(await (await admin("?participant_links")).json());
   }
 
-  function qr() {
-    const q = qrcode(0, "M");
-    q.addData(link.link); q.make();
-    return q;
+  function setLinks(data) {
+    links = data.links || [];
+    maxLinks = data.max || maxLinks;
+    renderLinks();
   }
 
-  function renderLink() {
-    const has = !!link?.link;
-    $("c-link-qr").innerHTML = has ? qr().createSvgTag({ scalable: true, margin: 2 }) : "";
-    $("c-link-qr").hidden = !has;
-    $("c-link-url").textContent = has ? link.link : "No link yet. Until you create one, the app is closed to everyone except admins.";
-    $("c-link-meta").textContent = has ? `Created ${when(link.created_at)}${link.created_by ? ` by ${link.created_by}` : ""}.` : "";
-    for (const id of ["c-link-copy", "c-link-slack", "c-link-png", "c-link-svg"]) $(id).hidden = !has;
+  const qrOf = url => { const q = qrcode(0, "M"); q.addData(url); q.make(); return q; };
+  const slug = s => String(s || "link").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "link";
+  const fileBase = l => `tokens-of-the-future-qr-${slug(l.label)}`;
+
+  function linkCard(l) {
+    return `<article class="c-link" data-link="${l.id}">
+      <div class="c-link-qr">${qrOf(l.link).createSvgTag({ scalable: true, margin: 2 })}</div>
+      <div>
+        <label class="lbl" for="c-link-label-${l.id}">Label</label>
+        <input class="c-link-label" type="text" id="c-link-label-${l.id}" data-rename="${l.id}" maxlength="40" value="${esc(l.label)}">
+        <p class="c-link-url">${esc(l.link)}</p>
+        <p class="fine">Created ${esc(when(l.created_at))}${l.created_by ? ` by ${esc(l.created_by)}` : ""} · opened ${l.opens} ${l.opens === 1 ? "time" : "times"}</p>
+        <div class="actions">
+          <button class="btn small" type="button" data-act="copy">Copy link</button>
+          <button class="btn small ghost" type="button" data-act="slack">Copy Slack message</button>
+          <button class="btn small ghost" type="button" data-act="png">Download QR (PNG)</button>
+          <button class="btn small ghost" type="button" data-act="svg">Download QR (SVG)</button>
+          <button class="btn small danger" type="button" data-act="reset">Reset</button>
+          <button class="btn small danger" type="button" data-act="delete">Delete</button>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  function renderLinks() {
     disarm();
+    $("c-links-max").textContent = maxLinks;
+    $("c-links-list").innerHTML = links.length ? links.map(linkCard).join("")
+      : `<p class="pulse-empty">No links yet. Until you create one, the app is closed to everyone except admins.</p>`;
+    const full = links.length >= maxLinks;
+    $("c-links-create").disabled = full;
+    $("c-links-label").disabled = full;
+    $("c-links-count").textContent = `${links.length} of ${maxLinks}${full ? ": delete one to make another" : ""}`;
   }
 
-  const slackMessage = () => `*Tokens of the Future*: pick one of 13 questions about the future of crowd work and get your route through HCOMP + CI 2026 (the talks, posters and panels that match it). You can leave notes on talks, signed with a pseudonym.
+  const slackMessage = l => `*Tokens of the Future*: pick one of 13 questions about the future of crowd work and get your route through HCOMP + CI 2026 (the talks, posters and panels that match it). You can leave notes on talks, signed with a pseudonym.
 
 For conference participants only: please keep this link inside the conference Slack.
-${link.link}`;
+${l.link}`;
 
   async function copy(text, done) {
     try { await navigator.clipboard.writeText(text); toast(done); } catch { toast("Could not copy. Select the link and copy it by hand."); }
@@ -107,38 +134,80 @@ ${link.link}`;
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
-  // Resetting takes two clicks, so a stray tap cannot cut everyone off the old link.
-  let armed = null;
-  function disarm() {
-    clearTimeout(armed); armed = null;
-    $("c-link-reset").textContent = link?.link ? "Reset link" : "Create link";
-  }
-
-  $("c-link-copy").addEventListener("click", () => copy(link.link, "Link copied"));
-  $("c-link-slack").addEventListener("click", () => copy(slackMessage(), "Slack message copied"));
-  $("c-link-svg").addEventListener("click", () =>
-    download(new Blob([qr().createSvgTag({ scalable: true, margin: 2 })], { type: "image/svg+xml" }), "crowdwork-journeys-qr.svg"));
-  $("c-link-png").addEventListener("click", () => {
-    const q = qr(), n = q.getModuleCount(), cell = 16, margin = 4;
+  function downloadPng(l) {
+    const q = qrOf(l.link), n = q.getModuleCount(), cell = 16, margin = 4;
     const c = Object.assign(document.createElement("canvas"), { width: (n + 2 * margin) * cell, height: (n + 2 * margin) * cell });
     const g = c.getContext("2d");
     g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
     g.fillStyle = "#000";
     for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) if (q.isDark(r, col)) g.fillRect((col + margin) * cell, (r + margin) * cell, cell, cell);
-    c.toBlob(b => download(b, "crowdwork-journeys-qr.png"), "image/png");
+    c.toBlob(b => download(b, `${fileBase(l)}.png`), "image/png");
+  }
+
+  async function linkPost(body, done) {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", body: JSON.stringify(body),
+        headers: { ...(token && token !== "dev" ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.links) setLinks(data);
+      toast(res.ok ? done : data.error || "The request failed.");
+      return res.ok;
+    } catch (e) { toast(e.message); return false; }
+  }
+
+  // Reset and delete take two clicks, so a stray tap cannot cut people off a link.
+  let armed = null;  // { id, act, timer }
+  const ARMED = {
+    reset: "Click again: this link's old address, QR code and passes stop working",
+    delete: "Click again: this link, its QR code and its passes stop working",
+  };
+  function disarm() {
+    if (!armed) return;
+    clearTimeout(armed.timer);
+    const b = document.querySelector(`[data-link="${armed.id}"] [data-act="${armed.act}"]`);
+    if (b) b.textContent = armed.act === "reset" ? "Reset" : "Delete";
+    armed = null;
+  }
+
+  $("c-links-new").addEventListener("submit", async e => {
+    e.preventDefault();
+    const label = $("c-links-label").value.trim();
+    if (await linkPost({ create_participant_link: true, label }, "New link ready. Post it, or its QR code, where participants will see it")) $("c-links-label").value = "";
   });
-  $("c-link-reset").addEventListener("click", async () => {
-    if (link?.link && !armed) {
-      $("c-link-reset").textContent = "Click again: the old link and QR code stop working";
-      armed = setTimeout(disarm, 6000);
+
+  $("c-links-list").addEventListener("click", async e => {
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    const id = +b.closest("[data-link]").dataset.link;
+    const l = links.find(x => x.id === id);
+    if (!l) return;
+    const act = b.dataset.act;
+    if (act === "copy") return copy(l.link, "Link copied");
+    if (act === "slack") return copy(slackMessage(l), "Slack message copied");
+    if (act === "svg") return download(new Blob([qrOf(l.link).createSvgTag({ scalable: true, margin: 2 })], { type: "image/svg+xml" }), `${fileBase(l)}.svg`);
+    if (act === "png") return downloadPng(l);
+    if (!(armed && armed.id === id && armed.act === act)) {
+      disarm();
+      b.textContent = ARMED[act];
+      armed = { id, act, timer: setTimeout(disarm, 6000) };
       return;
     }
     disarm();
-    try {
-      link = await (await admin("", { method: "POST", body: JSON.stringify({ reset_participant_link: true }) })).json();
-      renderLink();
-      toast("New link ready. Post it, and its QR code, in the Slack");
-    } catch (e) { toast(e.message); }
+    if (act === "reset") linkPost({ reset_participant_link: id }, `“${l.label}” has a new address. Post the new link or QR code`);
+    else linkPost({ delete_participant_link: id }, `“${l.label}” deleted`);
+  });
+
+  // Rename on Enter or when the field loses focus.
+  $("c-links-list").addEventListener("change", e => {
+    const input = e.target.closest("[data-rename]");
+    if (!input) return;
+    const l = links.find(x => x.id === +input.dataset.rename);
+    const label = input.value.trim();
+    if (!l || label === l.label) return;
+    if (!label) { input.value = l.label; return toast("A link needs a label."); }
+    linkPost({ rename_participant_link: l.id, label }, "Label saved");
   });
 
   // ---------- Rendering ----------
@@ -231,14 +300,15 @@ ${link.link}`;
   });
 
   $("c-filter").addEventListener("input", renderTable);
-  $("c-refresh").addEventListener("click", () => loadAll().then(() => toast("Refreshed")).catch(e => toast(e.message)));
+  $("c-refresh").addEventListener("click", () => Promise.all([loadAll(), loadLink()]).then(() => toast("Refreshed")).catch(e => toast(e.message)));
   $("c-lock").addEventListener("click", () => {
     fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logout: true }) }).catch(() => {});
     setToken(null);
     $("appbar-who").textContent = "";
     rows = { feedback: [], notes: [], participants: [] };
-    link = null; role = null;
-    $("c-link").hidden = true;
+    links = []; role = null;
+    $("c-links").hidden = true;
+    $("c-links-list").innerHTML = "";
     $("c-table").innerHTML = "";
     $("panel").hidden = true;
     $("locked").hidden = false;
