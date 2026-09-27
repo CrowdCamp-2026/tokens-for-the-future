@@ -4,20 +4,20 @@
 //     locks out old passes),
 //   - a participant session (someone who already signed in),
 //   - an admin token or admin cookie.
-// The server holds only PARTICIPANT_KEY_HASH, the SHA-256 of the key (hex).
-// Generate the key, link and QR code with build/make-participant-link.mjs.
+// The key lives in the participant_key table. A super admin creates and resets
+// it, and gets the link and QR code, in the console (/console).
 //
-// Fails closed on a real domain: without PARTICIPANT_KEY_HASH everything is
-// locked. On localhost the gate is off until the hash is set in .dev.vars.
+// Fails closed on a real domain: until a key exists everything is locked. On
+// localhost the gate stays off until a key is created.
 import {
   requireSecret, sha256Hex, sameHex, signSession, verifySession, readCookie,
-  adminIdentity, PASS_COOKIE, passCookieHeader,
+  adminIdentity, PASS_COOKIE, passCookieHeader, participantKey,
 } from "./api/_lib.js";
 
 // Reachable without the key: the privacy notice, the stylesheet the locked page
-// uses, the organizer console (its API checks admin tokens itself) and the
-// localhost-only dev routes.
-const OPEN = [/^\/privacy(\.html)?$/, /^\/styles\.css$/, /^\/console(\.html|\.js)?$/, /^\/api\/admin(\/|$)/, /^\/api\/dev\//];
+// uses, the organizer console and its QR library (its API checks admin tokens
+// itself) and the localhost-only dev routes.
+const OPEN = [/^\/privacy(\.html)?$/, /^\/styles\.css$/, /^\/console(\.html|\.js)?$/, /^\/vendor\/qrcode\.min\.js$/, /^\/api\/admin(\/|$)/, /^\/api\/dev\//];
 
 const isLocal = url => url.hostname === "localhost" || url.hostname === "127.0.0.1";
 
@@ -25,7 +25,7 @@ export async function onRequest({ request, env, next }) {
   const url = new URL(request.url);
   if (OPEN.some(re => re.test(url.pathname))) return next();
 
-  const keyHash = String(env.PARTICIPANT_KEY_HASH || "").trim().toLowerCase();
+  const keyHash = (await participantKey(env))?.hash;
   if (!keyHash) return isLocal(url) ? next() : locked(url, "unset");
   let secret;
   try { secret = requireSecret(request, env); } catch { return locked(url, "unset"); }
@@ -60,7 +60,7 @@ const redirect = (location, cookie) => new Response(null, {
 const MESSAGES = {
   closed: "Crowd Work Journeys is for HCOMP + CI 2026 participants. Open it from the link or QR code posted in the conference Slack.",
   stale: "This link has been replaced. Open the latest link or QR code posted in the conference Slack.",
-  unset: "The app is not open yet. The organizers still have to set the participant key.",
+  unset: "The app is not open yet. The organizers still have to create the participant link.",
 };
 
 function locked(url, why = "closed") {

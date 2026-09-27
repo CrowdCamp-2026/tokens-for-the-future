@@ -24,6 +24,7 @@ curl -sL https://files.sigchi.org/conference/program/CI/2026 -o build/program.js
 
 A splash page asks for **name, affiliation, and an email or phone number** (with a country picker), plus an optional follow-up consent. Ported from the computational-diplomacy workshop app (Tsinghua SEM, Geneva, 9 Sept 2026):
 
+- **Signing back in**: “Signed up before” on the splash page asks only for the email or phone number, and brings back the name, affiliation, pseudonym and notes (`POST /api/signin`). Signing up again with the same contact also works, and updates the name and affiliation. After signing out, the splash page opens on “Signed up before”.
 - The contact is the identity: the same email or number on another device signs back in. National and international phone forms (`079…`, `+41 79…`, `0041 79…`) are one person. Contacts are not verified, which is the accepted limit of a no-password tool.
 - A signed, HttpOnly session cookie lasts five days. IPs are stored only as keyed hashes.
 - “Your details” lets people sign out, or erase themselves by typing their name: name, affiliation and contact are deleted; notes stay as “Anonymous”.
@@ -31,22 +32,16 @@ A splash page asks for **name, affiliation, and an email or phone number** (with
 
 ## Participants only
 
-The whole app (pages, `data.json`, the API) is closed to anyone who has not opened the **participant link**, which is shared with its QR code in the conference Slack. The link carries a key (`/?k=…`). Opening it sets a signed, HttpOnly pass cookie for five days and redirects to the same page without the key, so the key does not stay in the address bar or in links people copy from the app. Without a pass, a participant session or an admin token, every request gets a short "for conference participants" page (or a JSON 403 from the API).
+The whole app (pages, `data.json`, the API) is closed to anyone who has not opened the **participant link**, which is shared with its QR code in the conference Slack. The link carries a 43-character key (`/?k=…`, 32 random bytes). Opening it sets a signed, HttpOnly pass cookie for five days and redirects to the same page without the key, so the key does not stay in the address bar or in links people copy from the app. Without a pass, a participant session or an admin token, every request gets a short "for conference participants" page (or a JSON 403 from the API).
 
-- Always open: `privacy.html`, `styles.css`, `/console` (its API checks admin tokens) and the localhost-only `/api/dev/*`.
-- The server holds only `PARTICIPANT_KEY_HASH`, the SHA-256 of the key. Without it the app stays locked on a real domain, and open on localhost.
-- Generate the key, link and QR code (default origin `https://crowdwork-journeys.pages.dev`):
+**The super admin manages the link in the console** (`/console`, “Participant link”): see the link and its QR code, copy the link or a ready-made Slack message, download the QR code as PNG or SVG, and **reset** it (two clicks). A reset makes a new key: the old link, QR code and passes stop working within 15 seconds, and people already signed in stay in. Admins do not see this panel, and the API refuses them (`GET /api/admin?participant_link`, `POST /api/admin {"reset_participant_link": true}`).
 
-```sh
-node build/make-participant-link.mjs https://<your-project>.pages.dev
-npx wrangler pages secret put PARTICIPANT_KEY_HASH --project-name crowdwork-journeys < participant-key.secret.txt
-# post participant-qr.local.png and the message in participant-link.local.txt to Slack, then delete participant-key.secret.txt
-```
-
-- `participant-qr.local.svg` is the bare code, for slides. All these files are git-ignored: they hold the key.
-- **Rotate** if the link leaks outside the conference: run the script again, upload the new hash, post the new link. Old links and passes stop working; people already signed in stay in. To sign those out too, also set a new `SESSION_SECRET` (everyone signs in again with the same email or phone and keeps their pseudonym and notes).
-- The flyer and poster QR codes point to the bare site, which shows the locked page. To print ones that open the app, pass the link: `python3 print/build_print.py "https://…/?k=…"` (the key then shows on paper, so keep those PDFs out of git).
-- Locally, `node build/make-participant-link.mjs --dev` writes the hash to `.dev.vars` and the link to `participant-link.dev.txt`, which the tests use.
+- The key lives in the `participant_key` table (migration `0005`), in clear, so the console can show the link again. It is a shared link posted in Slack, not a personal secret.
+- Until the super admin creates the first link, the app is locked on a real domain, and open on localhost.
+- Always open: `privacy.html`, `styles.css`, `/console` and its QR library (`vendor/qrcode.min.js`), `/api/admin` (checks admin tokens itself) and the localhost-only `/api/dev/*`.
+- A Slack card with the title around the QR code (1200×630): `node build/make-participant-card.mjs "<link from the console>"` writes `participant-card.local.png` and `participant-qr.local.svg`, both git-ignored.
+- To sign out everyone who joined through a leaked link too, also set a new `SESSION_SECRET`: everyone signs back in with their email or phone and keeps their pseudonym and notes.
+- The flyer and poster QR codes point to the bare site, which shows the locked page. To print ones that open the app, pass the link: `python3 print/build_print.py "https://…/?k=…"` (the key then shows on paper, so keep those PDFs out of git, and reprint after a reset).
 
 ## Notes from attendees
 
@@ -58,7 +53,11 @@ People add a comment, question or criticism to any talk, poster or panel. The fo
 
 ### Pseudonyms
 
-Everyone gets a random pseudonym at sign-up, kept across devices: 20 adjectives × 15 nouns = 300 HCOMP + CI themed names (“Calibrated Starling”, “Gold-Standard Oracle”, “Stigmergic Termite”), in `functions/api/_pseudos.js`. After 300, a number is added. Other attendees see only the pseudonym; names and affiliations appear in the console for admins, and contacts for the super admin only. Erasing your details removes the pseudonym too.
+Everyone gets a random pseudonym at sign-up, kept across devices: 20 adjectives × 15 nouns = 300 HCOMP + CI themed names (“Calibrated Starling”, “Gold-Standard Oracle”, “Stigmergic Termite”), in `functions/api/_pseudos.js`. After 300, a number is added.
+
+People can **change their pseudonym** in “Your details”: type a new one (a live check says whether it is free) or draw another themed one. Names that differ only in case, spacing or punctuation count as the same, so “Wise-Ant” is taken if “wise ant” is. Refused: someone else's pseudonym, the person's own real name, “Anonymous” and names that look official (admin, organizer, moderator, CrowdCamp, HCOMP). Notes show the writer's current pseudonym, so a change also renames earlier notes. A pseudonym someone gave up can be taken by someone else. API: `GET /api/pseudo?check=…`, `GET /api/pseudo?draw=1`, `POST /api/pseudo {"pseudo": …}`.
+
+Other attendees see only the pseudonym; names and affiliations appear in the console for admins, and contacts for the super admin only. Erasing your details removes the pseudonym too.
 
 Each note also records how the talk relates to the topic (came true / AI changed it / still open / not related) and, optionally, when the person expects to live in that future: a slider from “already happened” to 5 years, with a short reason. Choosing “It came true” moves the slider to “already happened”. Each topic page summarizes the answers.
 
@@ -119,7 +118,7 @@ npx wrangler d1 migrations apply crowdwork-journeys --local
 npx wrangler pages dev --port 8792
 ```
 
-Local secrets are in `.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`, optionally `PARTICIPANT_KEY_HASH`).
+Local secrets are in `.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`). The participant gate stays off locally until a participant link exists; the smoke test creates one, and after that open the app from the link in `/console?dev`.
 
 ### Local bypass for checking pages
 
@@ -134,7 +133,7 @@ Both conditions are checked on the server (`devBypass()` in `functions/api/_lib.
 Tests, with the local server running:
 
 ```sh
-node build/tests/api-smoke.mjs     # API checks: participants-only gate, sign-in, pseudonyms, notes, erase, admin-only feedback, roles (needs admin-tokens.local.txt from --dev)
+node build/tests/api-smoke.mjs     # API checks: participants-only gate and link reset, sign-up, signing back in, pseudonym changes, pseudonyms, notes, erase, admin-only feedback, roles (needs admin-tokens.local.txt from --dev)
 node build/tests/ui-shots.mjs      # phone-width screenshots into build/tests/shots/
 node build/tests/console-shot.mjs  # console screenshots (needs DEV_BYPASS)
 node build/tests/notes-shot.mjs    # what attendees see on a talk's notes
@@ -150,9 +149,8 @@ npx wrangler pages project create crowdwork-journeys --production-branch main
 node build/make-admin-tokens.mjs super:<you> admin:<a> admin:<b>
 npx wrangler pages secret put ADMIN_TOKENS --project-name crowdwork-journeys < admin-tokens.secret.json
 npx wrangler pages secret put SESSION_SECRET --project-name crowdwork-journeys   # a long random string
-node build/make-participant-link.mjs https://<your-project>.pages.dev
-npx wrangler pages secret put PARTICIPANT_KEY_HASH --project-name crowdwork-journeys < participant-key.secret.txt
 npx wrangler pages deploy
+# then open https://<your-project>.pages.dev/console as the super admin and create the participant link
 ```
 
 If `crowdwork-journeys.pages.dev` is taken or you pick another name, rebuild the QR codes with the real URL:

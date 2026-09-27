@@ -80,6 +80,31 @@ export const clearAdminCookieHeader = request => `${ADMIN_COOKIE}=; Path=/; Http
 export const PASS_COOKIE = "cwj_pass";
 export const passCookieHeader = (request, value) => `${PASS_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
 
+// The participant link's key, from the participant_key table, or null if none
+// was created yet (or the migration has not run). Cached per isolate for 15
+// seconds, so a reset reaches every isolate within that.
+let keyCache = null;
+export async function participantKey(env) {
+  if (keyCache && Date.now() - keyCache.at < 15000) return keyCache.value;
+  const row = await env.DB.prepare("SELECT key, created_at, created_by FROM participant_key ORDER BY id DESC LIMIT 1").first().catch(() => null);
+  const value = row ? { ...row, hash: await sha256Hex(row.key) } : null;
+  keyCache = { at: Date.now(), value };
+  return value;
+}
+
+// A new key (32 random bytes, 43 characters): the old link, QR code and passes stop working.
+export async function resetParticipantKey(env, by) {
+  const key = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM participant_key"),
+    env.DB.prepare("INSERT INTO participant_key (key, created_by) VALUES (?1, ?2)").bind(key, by),
+  ]);
+  keyCache = null;
+  return participantKey(env);
+}
+
+export const participantLink = (request, k) => `${new URL(request.url).origin}/?k=${k.key}`;
+
 // The signed-in participant, or null. An erased participant is signed out.
 export async function currentParticipant(request, env) {
   let secret;

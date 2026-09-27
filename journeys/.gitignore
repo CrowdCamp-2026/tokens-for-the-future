@@ -5,8 +5,5 @@ build/tests/.chrome/
 build/tests/.chrome-ref/
 admin-tokens.local.txt
 admin-tokens.secret.json
-participant-link.local.txt
-participant-link.dev.txt
-participant-key.secret.txt
-participant-qr.local.png
+participant-card.local.png
 participant-qr.local.svg

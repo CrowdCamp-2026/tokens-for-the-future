@@ -1,4 +1,7 @@
-import { adminIdentity, requireSecret, signSession, adminCookieHeader, clearAdminCookieHeader } from "./_lib.js";
+import {
+  adminIdentity, requireSecret, signSession, adminCookieHeader, clearAdminCookieHeader,
+  participantKey, resetParticipantKey, participantLink,
+} from "./_lib.js";
 
 // Organizer-only endpoints. Send your personal token: Authorization: Bearer <token>
 // (or come through Cloudflare Access). Roles: "admin" sees everything except
@@ -12,7 +15,13 @@ import { adminIdentity, requireSecret, signSession, adminCookieHeader, clearAdmi
 // GET  /api/admin?table=feedback       feedback on the app, with +1 counts
 // POST /api/admin {id, hidden}         hide or restore a note
 // POST /api/admin {feedback_id, status} set feedback status: open, planned, done, wontfix
+// GET  /api/admin?participant_link     super only: the link that opens the app { link, created_at, created_by }
+// POST /api/admin {reset_participant_link: true}  super only: a new key; the old link and QR code stop working
 const denied = () => new Response("Not allowed.", { status: 403 });
+const superOnly = () => new Response("Super admin only.", { status: 403 });
+const linkJson = async (request, k) => new Response(JSON.stringify(k ? { link: participantLink(request, k), created_at: k.created_at, created_by: k.created_by } : { link: null }), {
+  headers: { "content-type": "application/json", "cache-control": "no-store" },
+});
 
 
 
@@ -49,6 +58,7 @@ export async function onRequestGet({ request, env }) {
   if (!who) return denied();
   const params = new URL(request.url).searchParams;
   if (params.has("whoami")) return new Response(JSON.stringify({ email: who.email, role: who.role, via: who.via }), { headers: { "content-type": "application/json", "cache-control": "no-store" } });
+  if (params.has("participant_link")) return who.role === "super" ? linkJson(request, await participantKey(env)) : superOnly();
   const q = QUERIES[params.get("table") || "notes"];
   if (!q) return new Response("Unknown table.", { status: 400 });
   const { results } = await env.DB.prepare(typeof q.sql === "function" ? q.sql(who) : q.sql).all();
@@ -70,6 +80,10 @@ export async function onRequestPost({ request, env }) {
     return new Response(JSON.stringify({ email: who.email, role: who.role }), {
       headers: { "content-type": "application/json", "cache-control": "no-store", "Set-Cookie": adminCookieHeader(request, value) },
     });
+  }
+  if (body.reset_participant_link) {
+    if (who.role !== "super") return superOnly();
+    return linkJson(request, await resetParticipantKey(env, who.email));
   }
   if (body.feedback_id !== undefined) {
     if (!Number.isInteger(body.feedback_id) || !STATUSES.includes(body.status))

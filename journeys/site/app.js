@@ -61,7 +61,8 @@
   }
 
   // ---------- Splash: who are you ----------
-  function splash(msg = "") {
+  // door: "new" to sign up, "back" to sign back in with the email or phone used before.
+  function splash(msg = "", door = "new") {
     currentKey = null;
     fab.hidden = true;
     document.title = "Crowd Work Journeys";
@@ -71,13 +72,17 @@
       <p class="lede">In 2013, a paper born at CrowdCamp asked: <em>“Can we foresee a future crowd workplace in which we would want our children to participate?”</em> Thirteen years on, pick the question you care about, follow your route through the conference, and tell us what the talks say about it.</p>
       <p class="hook"><b>Why now:</b> Amazon Mechanical Turk shuts down on September 30, 2026, the last day of this conference.</p>
       <form class="join" id="join-form" novalidate>
-        <h2 class="join-title">First, who are you?</h2>
-        <label class="lbl" for="j-name">Name</label>
-        <input type="text" id="j-name" name="name" maxlength="80" autocomplete="name" required>
-        <label class="lbl" for="j-aff">Affiliation</label>
-        <input type="text" id="j-aff" name="affiliation" maxlength="120" autocomplete="organization" placeholder="University, company, or independent" required>
+        <div class="seg door" role="radiogroup" aria-label="New here or signed up before">
+          <label><input type="radio" name="door" value="new"><span>New here</span></label>
+          <label><input type="radio" name="door" value="back"><span>Signed up before</span></label>
+        </div>
+        <h2 class="join-title" id="j-title"></h2>
+        <label class="lbl j-new" for="j-name">Name</label>
+        <input class="j-new" type="text" id="j-name" name="name" maxlength="80" autocomplete="name" required>
+        <label class="lbl j-new" for="j-aff">Affiliation</label>
+        <input class="j-new" type="text" id="j-aff" name="affiliation" maxlength="120" autocomplete="organization" placeholder="University, company, or independent" required>
         <fieldset>
-          <legend>How you get back in</legend>
+          <legend id="j-legend"></legend>
           <div class="seg" id="j-mode">
             <label><input type="radio" name="mode" value="email" checked><span>Email</span></label>
             <label><input type="radio" name="mode" value="phone"><span>Phone</span></label>
@@ -89,13 +94,14 @@
             <select id="j-dial" aria-label="Country code"></select>
             <input type="tel" id="j-phone" inputmode="tel" autocomplete="tel-national" maxlength="20" placeholder="Number as you dial it at home" aria-label="Phone number">
           </div>
-          <p class="fine">On another device, type the same email or number and your notes come back. We send nothing to it during the conference.</p>
+          <p class="fine j-new">On another device, choose “Signed up before” and type the same email or number: your pseudonym and notes come back. We send nothing to it during the conference.</p>
+          <p class="fine j-back">The email or number you signed up with. Your pseudonym and notes come back.</p>
         </fieldset>
-        <label class="check"><input type="checkbox" id="j-follow" name="follow_up"><span>The CrowdCamp team may contact me about what comes out of this.</span></label>
+        <label class="check j-new"><input type="checkbox" id="j-follow" name="follow_up"><span>The CrowdCamp team may contact me about what comes out of this.</span></label>
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <button class="btn wide" type="submit">Continue</button>
+        <button class="btn wide" type="submit" id="j-go"></button>
         <p class="form-err" role="alert">${esc(msg)}</p>
-        <p class="fine">By continuing you accept the <a href="privacy.html">privacy notice</a>. Other attendees see only a pseudonym, which you get next. Your name, affiliation and contact are seen by the organizing team only.</p>
+        <p class="fine j-new">By continuing you accept the <a href="privacy.html">privacy notice</a>. Other attendees see only a pseudonym, which you get next. Your name, affiliation and contact are seen by the organizing team only.</p>
       </form>`;
     const sel = document.getElementById("j-dial");
     for (const [iso, name, dial] of window.DIAL_CODES || []) {
@@ -106,8 +112,24 @@
     const want = (COUNTRY || "US").toUpperCase();
     const pick = [...sel.options].find(o => o.dataset.iso === want) || [...sel.options].find(o => o.dataset.iso === "US");
     if (pick) sel.value = pick.value;
-    document.getElementById("j-name").focus();
+    setDoor(document.getElementById("join-form"), door);
     window.scrollTo(0, 0);
+  }
+
+  const DOORS = {
+    new: { title: "First, who are you?", legend: "How you get back in", go: "Continue" },
+    back: { title: "Welcome back", legend: "Your email or phone", go: "Sign back in" },
+  };
+  function setDoor(form, door) {
+    form.dataset.door = door;
+    form.querySelector(`[name=door][value=${door}]`).checked = true;
+    for (const el of form.querySelectorAll(".j-new")) el.hidden = door === "back";
+    for (const el of form.querySelectorAll(".j-back")) el.hidden = door !== "back";
+    form.querySelector("#j-title").textContent = DOORS[door].title;
+    form.querySelector("#j-legend").textContent = DOORS[door].legend;
+    form.querySelector("#j-go").textContent = DOORS[door].go;
+    const phone = form.querySelector("[name=mode]:checked").value === "phone";
+    document.getElementById(door === "back" ? (phone ? "j-phone" : "j-email") : "j-name").focus();
   }
 
   async function submitJoin(form) {
@@ -115,20 +137,19 @@
     const fd = new FormData(form);
     if (fd.get("website")) return;
     const phone = fd.get("mode") === "phone";
-    const payload = {
-      name: fd.get("name"), affiliation: fd.get("affiliation"), follow_up: !!fd.get("follow_up"),
-      ...(phone ? { dial: form.querySelector("#j-dial").value, number: form.querySelector("#j-phone").value } : { contact: fd.get("email") }),
-    };
+    const back = form.dataset.door === "back";
+    const contact = phone ? { dial: form.querySelector("#j-dial").value, number: form.querySelector("#j-phone").value } : { contact: fd.get("email") };
+    const payload = back ? contact : { name: fd.get("name"), affiliation: fd.get("affiliation"), follow_up: !!fd.get("follow_up"), ...contact };
     const btn = form.querySelector("[type=submit]");
     btn.disabled = true; btn.textContent = "Signing in…"; err.textContent = "";
     try {
-      const out = await api("/api/join", { method: "POST", body: JSON.stringify(payload) });
+      const out = await api(back ? "/api/signin" : "/api/join", { method: "POST", body: JSON.stringify(payload) });
       ME = out.participant;
       JUST_JOINED = !out.returning;
       route();
     } catch (e) {
       err.textContent = e.message === "Failed to fetch" ? "You seem to be offline. Try again." : e.message;
-      btn.disabled = false; btn.textContent = "Continue";
+      btn.disabled = false; btn.textContent = DOORS[back ? "back" : "new"].go;
     }
   }
 
@@ -140,13 +161,21 @@
       <a class="back" href="#">← All topics</a>
       <div class="eyebrow"><span>Your details</span><span></span></div>
       <dl class="details">
-        <dt>Pseudonym</dt><dd><b>${esc(ME.pseudo || "")}</b><div class="fine">What other attendees see on your notes.</div></dd>
+        <dt>Pseudonym</dt><dd>
+          <div id="ps-view"><b>${esc(ME.pseudo || "")}</b> <button class="btn small ghost" type="button" id="ps-edit">Change</button>
+            <div class="fine">What other attendees see on your notes.</div></div>
+          <form class="ps-form" id="ps-form" hidden novalidate>
+            <input type="text" id="ps-input" maxlength="40" autocomplete="off" spellcheck="false" aria-label="New pseudonym" value="${esc(ME.pseudo || "")}">
+            <p class="fine" id="ps-status" aria-live="polite"></p>
+            <div class="actions"><button class="btn small" type="submit" id="ps-save" disabled>Save</button><button class="btn small ghost" type="button" id="ps-draw">Draw a themed one</button><button class="btn small ghost" type="button" id="ps-cancel">Cancel</button></div>
+            <p class="fine">Your earlier notes show the new name too.</p>
+          </form></dd>
         <dt>Name</dt><dd>${esc(ME.name)}</dd>
         <dt>Affiliation</dt><dd>${esc(ME.affiliation)}</dd>
         <dt>${ME.contact_kind === "phone" ? "Phone" : "Email"}</dt><dd>${esc(ME.contact)}</dd>
         <dt>Follow-up</dt><dd>${ME.follow_up ? "The CrowdCamp team may contact you" : "No follow-up"}</dd>
       </dl>
-      <p class="fine">To change your name or affiliation, sign out and sign in again with the same ${ME.contact_kind === "phone" ? "number" : "email"}.</p>
+      <p class="fine">To change your name or affiliation, sign out, choose “New here” and sign up again with the same ${ME.contact_kind === "phone" ? "number" : "email"}. Your pseudonym and notes stay.</p>
       <div class="actions"><button class="btn ghost" type="button" id="logout">Sign out on this device</button></div>
       <section class="erase">
         <h3>Erase my details</h3>
@@ -158,8 +187,9 @@
       </section>`;
     document.getElementById("logout").onclick = async () => {
       try { await api("/api/logout", { method: "POST", body: "{}" }); } catch { /* signed out locally anyway */ }
-      ME = null; location.hash = ""; splash();
+      ME = null; location.hash = ""; splash("", "back");
     };
+    pseudoEditor();
     document.getElementById("erase-go").onclick = async () => {
       const err = document.getElementById("erase-err");
       try {
@@ -169,6 +199,41 @@
       } catch (e) { err.textContent = e.message; }
     };
     window.scrollTo(0, 0);
+  }
+
+  // Change the pseudonym, checking as you type that nobody else goes by it.
+  function pseudoEditor() {
+    const view = document.getElementById("ps-view"), form = document.getElementById("ps-form");
+    const input = document.getElementById("ps-input"), status = document.getElementById("ps-status"), save = document.getElementById("ps-save");
+    let seq = 0, timer = null;
+    const say = (text, kind = "") => { status.textContent = text; status.className = kind === "err" ? "form-err" : `fine${kind === "ok" ? " ok" : ""}`; };
+    async function check() {
+      const mine = ++seq, value = input.value.trim();
+      save.disabled = true;
+      if (!value || value === ME.pseudo) return say(value ? "That is your pseudonym now." : "");
+      say("Checking…");
+      try {
+        const out = await api(`/api/pseudo?check=${encodeURIComponent(value)}`);
+        if (mine !== seq) return;
+        if (out.available) { say("Available.", "ok"); save.disabled = false; } else say(out.error, "err");
+      } catch (e) { if (mine === seq) say(e.message, "err"); }
+    }
+    input.oninput = () => { clearTimeout(timer); timer = setTimeout(check, 250); };
+    document.getElementById("ps-edit").onclick = () => { view.hidden = true; form.hidden = false; input.focus(); input.select(); check(); };
+    document.getElementById("ps-cancel").onclick = () => { form.hidden = true; view.hidden = false; };
+    document.getElementById("ps-draw").onclick = async () => {
+      try { input.value = (await api("/api/pseudo?draw=1")).pseudo; check(); } catch (e) { say(e.message, "err"); }
+    };
+    form.onsubmit = async e => {
+      e.preventDefault(); e.stopPropagation();
+      if (save.disabled) return;
+      save.disabled = true; say("Saving…");
+      try {
+        ME = (await api("/api/pseudo", { method: "POST", body: JSON.stringify({ pseudo: input.value }) })).participant;
+        updateAppbar(); mePage();
+        document.getElementById("ps-view").insertAdjacentHTML("beforeend", `<div class="fine ok">Saved. Your notes now show this name.</div>`);
+      } catch (err) { say(err.message, "err"); }
+    };
   }
 
   // ---------- Feedback on the app ----------
@@ -273,7 +338,7 @@
       ${whoHTML()}
       <div class="eyebrow"><span>HCOMP + CI 2026 · Alexandria, VA</span><span>Sep 28–30</span></div>
       <h1>Crowd Work Journeys</h1>
-      ${JUST_JOINED ? `<p class="hook">Welcome, <b>${esc(ME.pseudo)}</b>. That is the name other attendees see on your notes.</p>` : ""}
+      ${JUST_JOINED ? `<p class="hook">Welcome, <b>${esc(ME.pseudo)}</b>. That is the name other attendees see on your notes. You can change it in <a href="#me">Your details</a>.</p>` : ""}
       <p class="lede">The 2013 paper named twelve research areas; we added a thirteenth. Pick the one you care about. We’ll map your route through this week’s sessions and posters, and you can leave notes on the talks you attend.</p>
       ${dims.map(d => `
         <section class="dim${d.name === "New in 2026" ? " new" : ""}">
@@ -678,6 +743,7 @@
 
   app.addEventListener("change", e => {
     const t = e.target;
+    if (t.name === "door") { setDoor(t.form, t.value); return; }
     if (t.name === "mode") {
       const phone = t.value === "phone";
       document.getElementById("j-email-box").hidden = phone;

@@ -21,23 +21,38 @@ async function call(who, path, body, headers = {}) {
 let fails = 0;
 const check = (label, ok, extra = "") => { console.log(`${ok ? "PASS" : "FAIL"}  ${label}${extra ? "  " + extra : ""}`); if (!ok) fails++; };
 
-// Participants-only gate. With PARTICIPANT_KEY_HASH in .dev.vars (make-participant-link.mjs --dev),
-// every request needs the pass cookie that the conference link sets.
-let PASS = "";
+// Participants-only gate. The key lives in D1; the super admin reads and resets it.
+// This creates one if there is none, so the local app is closed afterwards too
+// (open it from the link in /console).
 const ORIGIN = new URL(B).origin;
-if ((await fetch(B + "/me")).status === 403) {
-  check("without the link, the app is closed", (await fetch(ORIGIN + "/")).status === 403);
-  check("without the link, data.json is closed", (await fetch(ORIGIN + "/data.json")).status === 403);
-  check("the privacy notice stays open", (await fetch(ORIGIN + "/privacy.html", { redirect: "follow" })).status === 200);
-  check("a wrong key is refused", (await fetch(ORIGIN + "/?k=not-the-key", { redirect: "manual" })).status === 403);
-  const key = readFileSync(new URL("../../participant-link.dev.txt", import.meta.url), "utf8").trim().split("k=")[1];
-  const res = await fetch(`${ORIGIN}/?k=${key}#platforms`, { redirect: "manual" });
-  const set = res.headers.get("set-cookie") || "";
-  PASS = set.split(";")[0];
-  check("the link sets an HttpOnly pass", res.status === 302 && /^cwj_pass=/.test(PASS) && /HttpOnly/.test(set));
-  check("the link drops the key from the address", res.headers.get("location") === "/", res.headers.get("location"));
-  check("the pass opens the app", (await fetch(ORIGIN + "/", { headers: { cookie: PASS } })).status === 200);
-} else console.log("SKIP  participants-only gate  (no PARTICIPANT_KEY_HASH in .dev.vars)");
+const post = (path, body, headers) => fetch(B + path, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+const resetLink = async () => (await (await post("/admin", { reset_participant_link: true }, SUPER)).json()).link;
+const openLink = async l => {
+  const res = await fetch(l.replace(/^https?:\/\/[^/]+/, ORIGIN) + "#platforms", { redirect: "manual" });
+  return { res, set: res.headers.get("set-cookie") || "" };
+};
+let link = (await (await fetch(B + "/admin?participant_link", { headers: SUPER })).json()).link || await resetLink();
+check("the super admin gets the link, with a 43-character key", /\/\?k=[\w-]{43}$/.test(link || ""), link);
+check("an admin cannot read the participant link", (await fetch(B + "/admin?participant_link", { headers: ADMIN })).status === 403);
+check("an admin cannot reset it", (await post("/admin", { reset_participant_link: true }, ADMIN)).status === 403);
+check("without the link, the app is closed", (await fetch(ORIGIN + "/")).status === 403);
+check("without the link, data.json is closed", (await fetch(ORIGIN + "/data.json")).status === 403);
+check("without the link, the API is closed", (await fetch(B + "/me")).status === 403);
+check("the privacy notice stays open", (await fetch(ORIGIN + "/privacy.html")).status === 200);
+check("a wrong key is refused", (await fetch(ORIGIN + "/?k=not-the-key", { redirect: "manual" })).status === 403);
+let { res, set } = await openLink(link);
+let PASS = set.split(";")[0];
+check("the link sets an HttpOnly pass", res.status === 302 && /^cwj_pass=/.test(PASS) && /HttpOnly/.test(set));
+check("the link drops the key from the address", res.headers.get("location") === "/", res.headers.get("location"));
+check("the pass opens the app", (await fetch(ORIGIN + "/", { headers: { cookie: PASS } })).status === 200);
+const oldLink = link, oldPass = PASS;
+link = await resetLink();
+check("a reset gives a new key", link && link !== oldLink);
+check("after a reset, the old link is refused", (await openLink(oldLink)).res.status === 403);
+check("after a reset, the old pass is refused", (await fetch(ORIGIN + "/", { headers: { cookie: oldPass } })).status === 403);
+({ res, set } = await openLink(link));
+PASS = set.split(";")[0];
+check("the new link opens the app", res.status === 302 && (await fetch(ORIGIN + "/", { headers: { cookie: PASS } })).status === 200);
 
 let r = await call("x", "/notes", { item_id: 269094, topic: "platforms", kind: "comment", relation: "happened", point: "hello there" });
 check("note without sign-in is refused", r.status === 401, r.data.error);
@@ -63,9 +78,44 @@ check("notes never expose a contact", !JSON.stringify(r.data).includes("example.
 check("summary counts 'already happened'", r.data.summary?.horizon?.["0"] === 1);
 check("parts stored separately", n.point && n.why && n.evidence);
 r = await call("b", "/join", { name: "Bo", affiliation: "ETH", dial: "41", number: "079 123 45 67" });
-const bo = r.data.participant?.contact;
+const bo = r.data.participant?.contact, boPseudo = r.data.participant?.pseudo;
 r = await call("y", "/join", { name: "Bo", affiliation: "ETH", contact: "0041 79 123 45 67" });
 check("national and international phone forms are one person", bo === "+41791234567" && r.data.returning === true, `${bo} returning=${r.data.returning}`);
+// Changing the pseudonym
+r = await call("nobody", `/pseudo?check=Wise%20Heron`);
+check("pseudonym check needs sign-in", r.status === 401);
+const free = async name => (await call("a", `/pseudo?check=${encodeURIComponent(name)}`)).data;
+check("someone else's pseudonym is taken", (await free(boPseudo)).available === false);
+check("a look-alike of it is taken too", (await free(boPseudo.toLowerCase().replace(/ /g, "-"))).available === false, boPseudo.toLowerCase().replace(/ /g, "-"));
+check("your own pseudonym in other case is free", (await free(adaPseudo.toUpperCase())).available === true);
+check("'Anonymous' is kept", (await free("Anonymous")).available === false);
+check("your real name is refused", /real name/.test((await free("ada test")).error || ""));
+check("symbols only are refused", (await free("!!")).available === false);
+const newPseudo = `Quiet Heron ${Date.now() % 100000}`;
+check("a new name is free", (await free(newPseudo)).available === true);
+r = await call("a", "/pseudo", { pseudo: `  ${newPseudo} ` });
+check("change the pseudonym", r.status === 200 && r.data.participant.pseudo === newPseudo, r.data.error || r.data.participant?.pseudo);
+r = await call("a", "/me");
+check("me shows the new pseudonym", r.data.participant?.pseudo === newPseudo);
+r = await call("x", "/notes?topic=platforms");
+check("earlier notes show the new pseudonym", r.data.notes?.[0]?.author === newPseudo, r.data.notes?.[0]?.author);
+r = await call("a", "/pseudo", { pseudo: boPseudo });
+check("taking someone else's pseudonym is refused", r.status === 409, r.data.error);
+r = await call("a", "/pseudo?draw=1");
+check("draw suggests a free themed name", !!r.data.pseudo && (await free(r.data.pseudo)).available === true, r.data.pseudo);
+
+// Signing back in with only the email or phone
+r = await call("a3", "/signin", { contact: " ADA.TEST@example.org" });
+check("sign back in by email keeps name and pseudonym", r.status === 200 && r.data.participant.name === "Ada Test" && r.data.participant.pseudo === newPseudo, r.data.error || "");
+r = await call("a3", "/me");
+check("signed back in on the new device", r.data.participant?.pseudo === newPseudo);
+r = await call("b2", "/signin", { dial: "41", number: "079 123 45 67" });
+check("sign back in by phone", r.status === 200 && r.data.participant.pseudo === boPseudo, r.data.error || "");
+r = await call("z", "/signin", { contact: "nobody-here@example.org" });
+check("unknown email is told to sign up", r.status === 404, r.data.error);
+r = await call("z", "/signin", { contact: "not an email" });
+check("sign-in validates the contact", r.status === 400);
+
 r = await call("a", "/erase", { confirm: "someone" });
 check("erase needs the right name", r.status === 400);
 r = await call("a", "/erase", { confirm: "ada test" });
@@ -74,6 +124,8 @@ r = await call("x", "/notes?topic=platforms");
 check("erased note shows as anonymous", r.data.notes[0].author === null && r.data.notes[0].point.startsWith("MTurk"));
 r = await call("a", "/me");
 check("erased person is signed out", r.data.participant === null);
+r = await call("z", "/signin", { contact: "ada.test@example.org" });
+check("an erased person cannot sign back in", r.status === 404);
 r = await call("x", "/join", { name: "Ada Again", affiliation: "UNIGE", contact: "ada.test@example.org" });
 check("same email after erase starts a new record", r.data.returning === false);
 const bypass = (await fetch(B + "/dev/login", { redirect: "manual" })).status !== 404;
