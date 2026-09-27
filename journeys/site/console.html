@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260927i">
+<link rel="stylesheet" href="styles.css?v=20260927j">
 </head>
 <body class="console">
 <header class="appbar"><a class="appbar-title" href="./">Tokens of the Future</a><span class="appbar-who" id="appbar-who"></span></header>
@@ -26,6 +26,22 @@
 
   <section id="panel" hidden>
     <div class="c-stats" id="c-stats"></div>
+    <section class="c-link" id="c-link" hidden aria-labelledby="c-link-title">
+      <div class="c-link-qr" id="c-link-qr"></div>
+      <div>
+        <h2 class="join-title" id="c-link-title">Participant link</h2>
+        <p class="fine">Opens the app. Share it, or its QR code, only in the conference Slack. Anyone without it sees a “for conference participants” page.</p>
+        <p class="c-link-url" id="c-link-url"></p>
+        <p class="fine" id="c-link-meta"></p>
+        <div class="actions" id="c-link-actions">
+          <button class="btn small" type="button" id="c-link-copy">Copy link</button>
+          <button class="btn small ghost" type="button" id="c-link-slack">Copy Slack message</button>
+          <button class="btn small ghost" type="button" id="c-link-png">Download QR (PNG)</button>
+          <button class="btn small ghost" type="button" id="c-link-svg">Download QR (SVG)</button>
+          <button class="btn small danger" type="button" id="c-link-reset">Reset link</button>
+        </div>
+      </div>
+    </section>
     <div class="c-bar">
       <div class="seg c-tabs" role="tablist" aria-label="Tables">
         <button type="button" role="tab" data-tab="feedback" aria-selected="true">Feedback</button>
@@ -44,6 +60,7 @@
     <div class="c-table" id="c-table" tabindex="0" aria-live="polite"></div>
   </section>
 </main>
-<script src="console.js?v=20260927i"></script>
+<script src="vendor/qrcode.min.js"></script>
+<script src="console.js?v=20260927j"></script>
 </body>
 </html>
