@@ -26,15 +26,20 @@
 
   <section id="panel" hidden>
     <div class="c-stats" id="c-stats"></div>
-    <section class="c-links" id="c-links" hidden aria-labelledby="c-links-title">
-      <h2 class="join-title" id="c-links-title">Participant links</h2>
-      <p class="fine">Each link, and its QR code, opens the app. Share them only with conference participants: in the conference Slack, or on a poster at the venue. Anyone without one sees a “for conference participants” page. Make one per place, up to <span id="c-links-max">5</span>, so you can see which one people use, and reset or delete one without cutting off the others.</p>
-      <form class="c-links-new" id="c-links-new" novalidate>
-        <input type="text" id="c-links-label" maxlength="40" placeholder="Where it goes, e.g. Slack, registration poster" aria-label="Label for a new link">
-        <button class="btn small" type="submit" id="c-links-create">Create link</button>
-        <span class="fine" id="c-links-count"></span>
+    <section class="c-links" id="c-invites" hidden aria-labelledby="c-invites-title">
+      <h2 class="join-title" id="c-invites-title">Access tokens</h2>
+      <p class="fine">Each willing participant gets a personal token in a Slack DM; it opens the app on their devices. Generate a batch here and download it as a CSV to assign. The tokens are in that file only: the server keeps just a fingerprint (hash) of each. Keep the file private, and out of email, shared drives and git.</p>
+      <p class="c-invite-stats" id="c-invite-stats"></p>
+      <form class="c-links-new" id="c-invites-new" novalidate>
+        <label class="lbl" for="c-invites-n">How many</label>
+        <input type="number" id="c-invites-n" min="1" max="500" value="100">
+        <button class="btn small" type="submit">Generate and download CSV</button>
       </form>
-      <div class="c-links-list" id="c-links-list"></div>
+      <form class="c-links-new" id="c-invites-revoke" novalidate>
+        <label class="lbl" for="c-invites-id">Revoke token number</label>
+        <input type="number" id="c-invites-id" min="1" placeholder="e.g. 42">
+        <button class="btn small danger" type="submit">Revoke</button>
+      </form>
     </section>
     <div class="c-bar">
       <div class="seg c-tabs" role="tablist" aria-label="Tables">
@@ -54,7 +59,6 @@
     <div class="c-table" id="c-table" tabindex="0" aria-live="polite"></div>
   </section>
 </main>
-<script src="vendor/qrcode.min.js"></script>
 <script src="console.js?v=20260927k"></script>
 </body>
 </html>

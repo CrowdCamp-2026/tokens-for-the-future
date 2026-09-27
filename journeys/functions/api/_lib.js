@@ -75,75 +75,89 @@ const ADMIN_COOKIE = "cwj_admin";
 export const adminCookieHeader = (request, value) => `${ADMIN_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
 export const clearAdminCookieHeader = request => `${ADMIN_COOKIE}=; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=0`;
 
-// The participant pass, set when someone opens the conference link (?k=…).
+// The participant pass, set when someone enters their access token (or opens
+// its link, ?t=…). It names the token's invite id, so revoking a token ends its passes.
 // See functions/_middleware.js.
 export const PASS_COOKIE = "cwj_pass";
 export const passCookieHeader = (request, value) => `${PASS_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
 
-// Participant links: up to MAX_PARTICIPANT_LINKS rows in participant_key, each
-// with its own key, label and QR code (say one for the Slack, one for a poster),
-// so one can be reset or deleted without cutting off the others. Oldest first;
-// [] if none was created yet (or the migration has not run). Cached per isolate
-// for 15 seconds, so a reset or delete reaches every isolate within that.
-export const MAX_PARTICIPANT_LINKS = 5;
-let keyCache = null;
-// The console passes { fresh: true }, so it shows current open counts.
-export async function participantKeys(env, { fresh = false } = {}) {
-  if (!fresh && keyCache && Date.now() - keyCache.at < 15000) return keyCache.value;
-  const { results = [] } = await env.DB.prepare(
-    "SELECT id, key, label, opens, created_at, created_by FROM participant_key ORDER BY id"
-  ).all().catch(() => ({ results: [] }));
-  const value = await Promise.all(results.map(async r => ({ ...r, hash: await sha256Hex(r.key) })));
-  keyCache = { at: Date.now(), value };
+// Access tokens. Organizers send each willing participant a personal token in
+// a Slack DM. The super admin generates them in batches from the console and
+// downloads them once, as a CSV for assigning; the server keeps only the
+// SHA-256 of each token (invite.token_hash), as for the admin tokens.
+//
+// A token is 24 characters from 32 symbols, digits 2-9 and letters without I
+// and O (120 random bits), shown in groups of four: K7QM-3XWP-9HTC-VD2R-6NBF-JAYE.
+// Typed tokens are read case-insensitively, ignoring spaces and hyphens.
+const TOKEN_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";  // 32 symbols: one random byte & 31 picks one without bias
+const TOKEN_LENGTH = 24;
+export const MAX_INVITE_BATCH = 500;
+
+export function newAccessToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_LENGTH));
+  const raw = [...bytes].map(b => TOKEN_ALPHABET[b & 31]).join("");
+  return raw.match(/.{4}/g).join("-");
+}
+
+// The canonical form hashed and compared: upper case, letters and digits only.
+export const normaliseToken = s => String(s ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+export const tokenHash = s => sha256Hex(normaliseToken(s));
+
+// The invite a typed or linked token belongs to, or null (unknown or revoked).
+export async function findInvite(env, token) {
+  const t = normaliseToken(token);
+  if (t.length < 20) return null;
+  return env.DB.prepare("SELECT id FROM invite WHERE token_hash = ?1 AND revoked_at IS NULL")
+    .bind(await sha256Hex(t)).first().catch(() => null);
+}
+
+// Whether any token exists yet (the gate stays open on localhost until then), and
+// the revoked ones, whose passes stop working. Cached per isolate for 15 seconds.
+let inviteCache = null;
+export async function inviteState(env) {
+  if (inviteCache && Date.now() - inviteCache.at < 15000) return inviteCache.value;
+  const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM invite").first().catch(() => null);
+  const { results = [] } = await env.DB.prepare("SELECT id FROM invite WHERE revoked_at IS NOT NULL").all().catch(() => ({ results: [] }));
+  const value = { any: (row?.n || 0) > 0, revoked: new Set(results.map(r => r.id)) };
+  inviteCache = { at: Date.now(), value };
   return value;
 }
-// The pass cookie names the key it came from by this tag, so resetting or
-// deleting one link ends only the passes it gave out.
-export const keyTag = k => k.hash.slice(0, 16);
+export const forgetInviteState = () => { inviteCache = null; };
 
-const newKey = () => b64url(crypto.getRandomValues(new Uint8Array(32)));  // 32 random bytes, 43 characters
-const linkLabel = s => clean(s, 40);
+export const countInviteUse = (env, id) => env.DB.prepare(
+  "UPDATE invite SET uses = uses + 1, first_used_at = COALESCE(first_used_at, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')) WHERE id = ?1"
+).bind(id).run().catch(() => {});
 
-// A new link, or null when there are already MAX_PARTICIPANT_LINKS. The count
-// check and the insert are one statement, so two clicks cannot make a sixth.
-export async function createParticipantKey(env, by, label) {
+// A new batch of n tokens: [{ id, token }], shown to the super admin once.
+export async function createInvites(env, n, by) {
+  const batch = new Date().toISOString();
+  const tokens = Array.from({ length: n }, newAccessToken);
+  const stmts = [];
+  for (const t of tokens) {
+    stmts.push(env.DB.prepare("INSERT INTO invite (token_hash, batch, created_by) VALUES (?1, ?2, ?3) RETURNING id")
+      .bind(await tokenHash(t), batch, by));
+  }
+  const res = await env.DB.batch(stmts);
+  forgetInviteState();
+  return tokens.map((token, i) => ({ id: res[i].results[0].id, token }));
+}
+
+export async function revokeInvite(env, id) {
   const { meta } = await env.DB.prepare(
-    `INSERT INTO participant_key (key, label, created_by)
-     SELECT ?1, COALESCE(NULLIF(?2, ''), 'Link ' || (COALESCE(MAX(id), 0) + 1)), ?3 FROM participant_key
-     HAVING COUNT(*) < ?4`
-  ).bind(newKey(), linkLabel(label), by, MAX_PARTICIPANT_LINKS).run();
-  keyCache = null;
+    "UPDATE invite SET revoked_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?1 AND revoked_at IS NULL"
+  ).bind(id).run();
+  forgetInviteState();
   return meta.changes > 0;
 }
 
-// A new key for one link, keeping its label: its old address, QR code and passes stop working.
-export async function resetParticipantKey(env, id, by) {
-  const { meta } = await env.DB.prepare(
-    "UPDATE participant_key SET key = ?1, created_by = ?2, opens = 0, created_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?3"
-  ).bind(newKey(), by, id).run();
-  keyCache = null;
-  return meta.changes > 0;
+export async function inviteStats(env) {
+  const r = await env.DB.prepare(
+    "SELECT COUNT(*) AS total, COUNT(first_used_at) AS used, COUNT(revoked_at) AS revoked FROM invite"
+  ).first().catch(() => null);
+  return { total: r?.total || 0, used: r?.used || 0, revoked: r?.revoked || 0 };
 }
 
-export async function deleteParticipantKey(env, id) {
-  const { meta } = await env.DB.prepare("DELETE FROM participant_key WHERE id = ?1").bind(id).run();
-  keyCache = null;
-  return meta.changes > 0;
-}
-
-export async function renameParticipantKey(env, id, label) {
-  const name = linkLabel(label);
-  if (!name) return false;
-  const { meta } = await env.DB.prepare("UPDATE participant_key SET label = ?1 WHERE id = ?2").bind(name, id).run();
-  keyCache = null;
-  return meta.changes > 0;
-}
-
-// How many times a link was opened, so organizers can tell which QR code people use.
-export const countParticipantOpen = (env, id) =>
-  env.DB.prepare("UPDATE participant_key SET opens = opens + 1 WHERE id = ?1").bind(id).run().catch(() => {});
-
-export const participantLink = (request, k) => `${new URL(request.url).origin}/?k=${k.key}`;
+export const accessLink = (request, token) => `${new URL(request.url).origin}/?t=${token}`;
 
 // The signed-in participant, or null. An erased participant is signed out.
 export async function currentParticipant(request, env) {

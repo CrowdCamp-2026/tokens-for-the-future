@@ -1,24 +1,23 @@
 // Participants only. Every page and API call needs one of:
-//   - the key of one of the participant links (?k=…), shared with its QR code in the
-//     conference Slack or on a poster,
-//   - the pass cookie a link sets (it names the key it came from, so resetting or
-//     deleting a link locks out its passes and no others),
+//   - a pass cookie, set when someone enters their personal access token on the
+//     locked page (POST /api/access) or opens its link (?t=…); it names the
+//     token's invite, so revoking a token ends its passes,
 //   - a participant session (someone who already signed in),
 //   - an admin token or admin cookie.
-// The keys live in the participant_key table, up to 5. A super admin creates,
-// labels, resets and deletes them, and gets each link and QR code, in the console.
+// Organizers send each willing participant a token in a Slack DM. The super
+// admin generates them in the console; see the access tokens in api/_lib.js.
 //
-// Fails closed on a real domain: until a link exists everything is locked. On
-// localhost the gate stays off until a link is created.
+// Fails closed on a real domain: until a token exists everything is locked. On
+// localhost the gate stays off until a token is generated.
 import {
-  requireSecret, sha256Hex, sameHex, signSession, verifySession, readCookie,
-  adminIdentity, PASS_COOKIE, passCookieHeader, participantKeys, keyTag, countParticipantOpen,
+  requireSecret, signSession, verifySession, readCookie, adminIdentity, PASS_COOKIE, passCookieHeader,
+  inviteState, findInvite, countInviteUse,
 } from "./api/_lib.js";
 
-// Reachable without the key: the privacy notice, the stylesheet the locked page
-// uses, the organizer console and its QR library (its API checks admin tokens
-// itself) and the localhost-only dev routes.
-const OPEN = [/^\/privacy(\.html)?$/, /^\/styles\.css$/, /^\/console(\.html|\.js)?$/, /^\/vendor\/qrcode\.min\.js$/, /^\/api\/admin(\/|$)/, /^\/api\/dev\//];
+// Reachable without a token: the privacy notice, the stylesheet the locked page
+// uses, the organizer console (its API checks admin tokens itself) and the
+// localhost-only dev routes.
+const OPEN = [/^\/privacy(\.html)?$/, /^\/styles\.css$/, /^\/console(\.html|\.js)?$/, /^\/api\/admin(\/|$)/, /^\/api\/dev\//];
 
 const isLocal = url => url.hostname === "localhost" || url.hostname === "127.0.0.1";
 
@@ -26,34 +25,47 @@ export async function onRequest({ request, env, next, waitUntil }) {
   const url = new URL(request.url);
   if (OPEN.some(re => re.test(url.pathname))) return next();
 
-  const keys = await participantKeys(env);
-  if (!keys.length) return isLocal(url) ? next() : locked(url, "unset");
+  const state = await inviteState(env);
+  if (!state.any) return isLocal(url) ? next() : locked(url, "unset");
   let secret;
   try { secret = requireSecret(request, env); } catch { return locked(url, "unset"); }
-  const tags = new Set(keys.map(keyTag));
 
-  const key = url.searchParams.get("k");
-  if (key !== null) {
-    // Take the key out of the address bar, so it does not end up in history,
+  if (url.pathname === "/api/access" && request.method === "POST") return enter(request, env, secret, waitUntil);
+
+  const token = url.searchParams.get("t");
+  if (token !== null) {
+    // Take the token out of the address bar, so it does not end up in history,
     // screenshots or links people copy from the app.
-    url.searchParams.delete("k");
+    url.searchParams.delete("t");
     const clean = url.pathname + url.search;
-    const hash = await sha256Hex(key.trim());
-    const hit = keys.find(k => sameHex(hash, k.hash));
-    if (hit) {
-      const count = countParticipantOpen(env, hit.id);
-      if (waitUntil) waitUntil(count); else await count;
-      const pass = await signSession({ pk: keyTag(hit) }, secret);
-      return redirect(clean, passCookieHeader(request, pass));
-    }
-    // An old or deleted link: fine for someone already in, a dead end for anyone else.
-    return (await allowed(request, env, secret, tags)) ? redirect(clean) : locked(url, "stale");
+    const invite = await findInvite(env, token);
+    if (invite) return redirect(clean, await grant(request, env, secret, invite, waitUntil));
+    return (await allowed(request, env, secret, state)) ? redirect(clean) : locked(url, "bad");
   }
-  return (await allowed(request, env, secret, tags)) ? next() : locked(url);
+  return (await allowed(request, env, secret, state)) ? next() : locked(url);
 }
 
-async function allowed(request, env, secret, tags) {
-  if (tags.has((await verifySession(readCookie(request, PASS_COOKIE), secret))?.pk)) return true;
+// The locked page's form (or a JSON client) sends { token }.
+async function enter(request, env, secret, waitUntil) {
+  const json = (request.headers.get("content-type") || "").includes("json");
+  const body = json ? await request.json().catch(() => ({})) : Object.fromEntries(await request.formData().catch(() => new FormData()));
+  const invite = await findInvite(env, body?.token);
+  if (!invite) return locked(new URL(request.url), "bad", json);
+  const cookie = await grant(request, env, secret, invite, waitUntil);
+  return json
+    ? new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "cache-control": "no-store", "Set-Cookie": cookie } })
+    : new Response(null, { status: 303, headers: { Location: "/", "cache-control": "no-store", "Set-Cookie": cookie } });
+}
+
+async function grant(request, env, secret, invite, waitUntil) {
+  const count = countInviteUse(env, invite.id);
+  if (waitUntil) waitUntil(count); else await count;
+  return passCookieHeader(request, await signSession({ inv: invite.id }, secret));
+}
+
+async function allowed(request, env, secret, state) {
+  const pass = await verifySession(readCookie(request, PASS_COOKIE), secret);
+  if (Number.isInteger(pass?.inv) && !state.revoked.has(pass.inv)) return true;
   if ((await verifySession(readCookie(request), secret))?.pid) return true;
   return !!(await adminIdentity(request, env, { allowDev: false }));
 }
@@ -63,18 +75,27 @@ const redirect = (location, cookie) => new Response(null, {
 });
 
 const MESSAGES = {
-  closed: "Tokens of the Future is for HCOMP + CI 2026 participants. Open it from the link or QR code posted in the conference Slack.",
-  stale: "This link no longer works. Open the latest link or QR code posted in the conference Slack.",
-  unset: "The app is not open yet. The organizers still have to create a participant link.",
+  closed: "Tokens of the Future is for HCOMP + CI 2026 participants. Enter the access token the organizers sent you in a Slack message.",
+  bad: "That token does not work. Check it against your Slack message, or ask the organizers for a new one.",
+  unset: "The app is not open yet. The organizers still have to send out access tokens.",
 };
 
-function locked(url, why = "closed") {
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function locked(url, why = "closed", asJson = url.pathname.startsWith("/api/")) {
   const status = why === "unset" ? 503 : 403;
-  if (url.pathname.startsWith("/api/")) {
+  if (asJson) {
     return new Response(JSON.stringify({ error: MESSAGES[why] }), {
       status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
     });
   }
+  const form = why === "unset" ? "" : `
+  <form class="join" method="post" action="/api/access">
+    <label class="lbl" for="t">Access token</label>
+    <input type="text" id="t" name="token" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" required autofocus>
+    <button class="btn wide" type="submit">Open the app</button>
+    <p class="fine">No token yet? Ask the CrowdCamp organizers on the conference Slack.</p>
+  </form>`;
   return new Response(`<!doctype html>
 <html lang="en">
 <head>
@@ -92,7 +113,8 @@ function locked(url, why = "closed") {
 <main class="privacy">
   <div class="eyebrow"><span>HCOMP + CI 2026 · Alexandria, VA</span><span>Sep 28–30</span></div>
   <h2 class="topic-title">For conference participants</h2>
-  <p class="lede">${MESSAGES[why]}</p>
+  <p class="unofficial">An independent project by CrowdCamp 2026 participants. It is not an official app of HCOMP + CI 2026 or SIGCHI.</p>
+  <p class="lede">${esc(MESSAGES[why])}</p>${form}
   <p><a href="/privacy.html">Privacy notice</a></p>
 </main>
 </body>

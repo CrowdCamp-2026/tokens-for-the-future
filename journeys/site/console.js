@@ -54,7 +54,7 @@
       // Also sign this browser in as admin for the app (the feedback box).
       const who = await (await admin("", { method: "POST", body: JSON.stringify({ login: true }) })).json();
       role = who.role;
-      await loadLink();
+      await loadInvites();
       $("locked").hidden = true;
       $("appbar-who").textContent = `${who.email} · ${who.role === "super" ? "Super admin" : "Admin"}`;
       renderTable();
@@ -67,65 +67,25 @@
     }
   }
 
-  // ---------- Participant links (super admin only) ----------
-  // Up to `max` links, each with its own key, label and QR code.
-  let links = [], maxLinks = 5;
+  // ---------- Access tokens ----------
+  // Every admin sees how many tokens are in use; the super admin generates and revokes them.
+  let invites = null;  // { total, used, revoked }
 
-  async function loadLink() {
-    $("c-links").hidden = role !== "super";
-    if (role !== "super") return;
-    setLinks(await (await admin("?participant_links")).json());
+  async function loadInvites() {
+    $("c-invites").hidden = role !== "super";
+    invites = await (await admin("?invites")).json();
+    renderInvites();
+    renderStats();
   }
 
-  function setLinks(data) {
-    links = data.links || [];
-    maxLinks = data.max || maxLinks;
-    renderLinks();
+  function renderInvites() {
+    if (!invites) return;
+    $("c-invite-stats").textContent = invites.total
+      ? `${invites.total} generated · ${invites.used} used · ${invites.revoked} revoked`
+      : "No tokens yet. Until you generate some, the app is closed to everyone except admins.";
   }
 
-  const qrOf = url => { const q = qrcode(0, "M"); q.addData(url); q.make(); return q; };
-  const slug = s => String(s || "link").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "link";
-  const fileBase = l => `tokens-of-the-future-qr-${slug(l.label)}`;
-
-  function linkCard(l) {
-    return `<article class="c-link" data-link="${l.id}">
-      <div class="c-link-qr">${qrOf(l.link).createSvgTag({ scalable: true, margin: 2 })}</div>
-      <div>
-        <label class="lbl" for="c-link-label-${l.id}">Label</label>
-        <input class="c-link-label" type="text" id="c-link-label-${l.id}" data-rename="${l.id}" maxlength="40" value="${esc(l.label)}">
-        <p class="c-link-url">${esc(l.link)}</p>
-        <p class="fine">Created ${esc(when(l.created_at))}${l.created_by ? ` by ${esc(l.created_by)}` : ""} · opened ${l.opens} ${l.opens === 1 ? "time" : "times"}</p>
-        <div class="actions">
-          <button class="btn small" type="button" data-act="copy">Copy link</button>
-          <button class="btn small ghost" type="button" data-act="slack">Copy Slack message</button>
-          <button class="btn small ghost" type="button" data-act="png">Download QR (PNG)</button>
-          <button class="btn small ghost" type="button" data-act="svg">Download QR (SVG)</button>
-          <button class="btn small danger" type="button" data-act="reset">Reset</button>
-          <button class="btn small danger" type="button" data-act="delete">Delete</button>
-        </div>
-      </div>
-    </article>`;
-  }
-
-  function renderLinks() {
-    disarm();
-    $("c-links-max").textContent = maxLinks;
-    $("c-links-list").innerHTML = links.length ? links.map(linkCard).join("")
-      : `<p class="pulse-empty">No links yet. Until you create one, the app is closed to everyone except admins.</p>`;
-    const full = links.length >= maxLinks;
-    $("c-links-create").disabled = full;
-    $("c-links-label").disabled = full;
-    $("c-links-count").textContent = `${links.length} of ${maxLinks}${full ? ": delete one to make another" : ""}`;
-  }
-
-  const slackMessage = l => `*Tokens of the Future*: pick one of 13 questions about the future of crowd work and get your route through HCOMP + CI 2026 (the talks, posters and panels that match it). You can leave notes on talks, signed with a pseudonym.
-
-For conference participants only: please keep this link inside the conference Slack.
-${l.link}`;
-
-  async function copy(text, done) {
-    try { await navigator.clipboard.writeText(text); toast(done); } catch { toast("Could not copy. Select the link and copy it by hand."); }
-  }
+  const csvCell = v => { const s = v == null ? "" : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
   function download(blob, name) {
     const url = URL.createObjectURL(blob);
@@ -134,80 +94,40 @@ ${l.link}`;
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
-  function downloadPng(l) {
-    const q = qrOf(l.link), n = q.getModuleCount(), cell = 16, margin = 4;
-    const c = Object.assign(document.createElement("canvas"), { width: (n + 2 * margin) * cell, height: (n + 2 * margin) * cell });
-    const g = c.getContext("2d");
-    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
-    g.fillStyle = "#000";
-    for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) if (q.isDark(r, col)) g.fillRect((col + margin) * cell, (r + margin) * cell, cell, cell);
-    c.toBlob(b => download(b, `${fileBase(l)}.png`), "image/png");
+  async function invitePost(body) {
+    const res = await fetch("/api/admin", {
+      method: "POST", body: JSON.stringify(body),
+      headers: { ...(token && token !== "dev" ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json" },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (Number.isInteger(data.total)) { invites = { total: data.total, used: data.used, revoked: data.revoked }; renderInvites(); renderStats(); }
+    if (!res.ok) throw new Error(data.error || "The request failed.");
+    return data;
   }
 
-  async function linkPost(body, done) {
-    try {
-      const res = await fetch("/api/admin", {
-        method: "POST", body: JSON.stringify(body),
-        headers: { ...(token && token !== "dev" ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json" },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.links) setLinks(data);
-      toast(res.ok ? done : data.error || "The request failed.");
-      return res.ok;
-    } catch (e) { toast(e.message); return false; }
-  }
-
-  // Reset and delete take two clicks, so a stray tap cannot cut people off a link.
-  let armed = null;  // { id, act, timer }
-  const ARMED = {
-    reset: "Click again: this link's old address, QR code and passes stop working",
-    delete: "Click again: this link, its QR code and its passes stop working",
-  };
-  function disarm() {
-    if (!armed) return;
-    clearTimeout(armed.timer);
-    const b = document.querySelector(`[data-link="${armed.id}"] [data-act="${armed.act}"]`);
-    if (b) b.textContent = armed.act === "reset" ? "Reset" : "Delete";
-    armed = null;
-  }
-
-  $("c-links-new").addEventListener("submit", async e => {
+  // The CSV Brian fills in: one row per token, with empty columns for who it goes to.
+  $("c-invites-new").addEventListener("submit", async e => {
     e.preventDefault();
-    const label = $("c-links-label").value.trim();
-    if (await linkPost({ create_participant_link: true, label }, "New link ready. Post it, or its QR code, where participants will see it")) $("c-links-label").value = "";
+    const n = +$("c-invites-n").value;
+    try {
+      const { invites: rows } = await invitePost({ generate_invites: n });
+      const head = ["number", "token", "link", "assigned_to", "slack_handle", "sent_at", "notes"];
+      const csv = [head.join(","), ...rows.map(r => [r.id, r.token, r.link, "", "", "", ""].map(csvCell).join(","))].join("\r\n") + "\r\n";
+      download(new Blob([csv], { type: "text/csv;charset=utf-8" }),
+        `tokens-of-the-future-access-tokens-${new Date().toISOString().slice(0, 10)}-${rows[0].id}-${rows[rows.length - 1].id}.csv`);
+      toast(`${rows.length} tokens downloaded. They are not shown again, so keep the file safe`);
+    } catch (err) { toast(err.message); }
   });
 
-  $("c-links-list").addEventListener("click", async e => {
-    const b = e.target.closest("[data-act]");
-    if (!b) return;
-    const id = +b.closest("[data-link]").dataset.link;
-    const l = links.find(x => x.id === id);
-    if (!l) return;
-    const act = b.dataset.act;
-    if (act === "copy") return copy(l.link, "Link copied");
-    if (act === "slack") return copy(slackMessage(l), "Slack message copied");
-    if (act === "svg") return download(new Blob([qrOf(l.link).createSvgTag({ scalable: true, margin: 2 })], { type: "image/svg+xml" }), `${fileBase(l)}.svg`);
-    if (act === "png") return downloadPng(l);
-    if (!(armed && armed.id === id && armed.act === act)) {
-      disarm();
-      b.textContent = ARMED[act];
-      armed = { id, act, timer: setTimeout(disarm, 6000) };
-      return;
-    }
-    disarm();
-    if (act === "reset") linkPost({ reset_participant_link: id }, `“${l.label}” has a new address. Post the new link or QR code`);
-    else linkPost({ delete_participant_link: id }, `“${l.label}” deleted`);
-  });
-
-  // Rename on Enter or when the field loses focus.
-  $("c-links-list").addEventListener("change", e => {
-    const input = e.target.closest("[data-rename]");
-    if (!input) return;
-    const l = links.find(x => x.id === +input.dataset.rename);
-    const label = input.value.trim();
-    if (!l || label === l.label) return;
-    if (!label) { input.value = l.label; return toast("A link needs a label."); }
-    linkPost({ rename_participant_link: l.id, label }, "Label saved");
+  $("c-invites-revoke").addEventListener("submit", async e => {
+    e.preventDefault();
+    const id = +$("c-invites-id").value;
+    if (!Number.isInteger(id) || id < 1) return toast("Type the token's number, from the first column of the CSV.");
+    try {
+      await invitePost({ revoke_invite: id });
+      $("c-invites-id").value = "";
+      toast(`Token ${id} revoked. It and the passes it gave stop working within a minute`);
+    } catch (err) { toast(err.message); }
   });
 
   // ---------- Rendering ----------
@@ -219,6 +139,7 @@ ${l.link}`;
       stat(people.filter(p => p.follow_up).length, "agreed to follow-up"),
       stat(rows.notes.filter(n => !n.hidden).length, "notes on talks"),
       stat(rows.feedback.filter(f => f.status === "open" && !f.hidden).length, "open feedback"),
+      ...(invites ? [stat(`${invites.used} / ${invites.total}`, "access tokens used")] : []),
     ].join("");
   }
 
@@ -300,15 +221,14 @@ ${l.link}`;
   });
 
   $("c-filter").addEventListener("input", renderTable);
-  $("c-refresh").addEventListener("click", () => Promise.all([loadAll(), loadLink()]).then(() => toast("Refreshed")).catch(e => toast(e.message)));
+  $("c-refresh").addEventListener("click", () => Promise.all([loadAll(), loadInvites()]).then(() => toast("Refreshed")).catch(e => toast(e.message)));
   $("c-lock").addEventListener("click", () => {
     fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logout: true }) }).catch(() => {});
     setToken(null);
     $("appbar-who").textContent = "";
     rows = { feedback: [], notes: [], participants: [] };
-    links = []; role = null;
-    $("c-links").hidden = true;
-    $("c-links-list").innerHTML = "";
+    invites = null; role = null;
+    $("c-invites").hidden = true;
     $("c-table").innerHTML = "";
     $("panel").hidden = true;
     $("locked").hidden = false;
