@@ -8,6 +8,7 @@ import {
   json, bad, readJson, clean, requireSecret, keyedHash, clientIp, signSession, cookieHeader,
   normaliseContact, composePhone, publicParticipant,
 } from "./_lib.js";
+import { freshPseudo } from "./_pseudos.js";
 
 export async function onRequestPost({ request, env }) {
   const body = await readJson(request);
@@ -33,18 +34,30 @@ export async function onRequestPost({ request, env }) {
 
   const existing = await env.DB.prepare("SELECT * FROM participant WHERE contact = ?1").bind(contact.value).first();
   let participant;
-  if (existing) {
-    await env.DB.prepare(
-      "UPDATE participant SET name = ?1, affiliation = ?2, follow_up = ?3, net_hash = ?4, country = ?5, last_seen_at = ?6 WHERE id = ?7"
-    ).bind(name, affiliation, followUp, netHash, country, at, existing.id).run();
-    participant = { ...existing, name, affiliation, follow_up: followUp };
-  } else {
-    participant = { id: crypto.randomUUID(), name, affiliation, contact: contact.value, contact_kind: contact.kind, follow_up: followUp };
-    await env.DB.prepare(
-      `INSERT INTO participant (id, name, affiliation, contact, contact_kind, follow_up, net_hash, country, last_seen_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
-    ).bind(participant.id, name, affiliation, contact.value, contact.kind, followUp, netHash, country, at).run();
+  // The pseudonym is what other attendees see. A returning person keeps theirs.
+  // Two people signing up at the same instant could draw the same one; the
+  // unique index catches that and we draw again.
+  for (let attempt = 0; attempt < 5 && !participant; attempt++) {
+    const pseudo = existing?.pseudo || await freshPseudo(env.DB);
+    try {
+      if (existing) {
+        await env.DB.prepare(
+          "UPDATE participant SET name = ?1, affiliation = ?2, follow_up = ?3, net_hash = ?4, country = ?5, last_seen_at = ?6, pseudo = ?7 WHERE id = ?8"
+        ).bind(name, affiliation, followUp, netHash, country, at, pseudo, existing.id).run();
+        participant = { ...existing, name, affiliation, follow_up: followUp, pseudo };
+      } else {
+        const p = { id: crypto.randomUUID(), name, affiliation, contact: contact.value, contact_kind: contact.kind, follow_up: followUp, pseudo };
+        await env.DB.prepare(
+          `INSERT INTO participant (id, name, affiliation, contact, contact_kind, follow_up, net_hash, country, last_seen_at, pseudo)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`
+        ).bind(p.id, name, affiliation, contact.value, contact.kind, followUp, netHash, country, at, pseudo).run();
+        participant = p;
+      }
+    } catch (e) {
+      if (!/UNIQUE/i.test(String(e?.message))) throw e;
+    }
   }
+  if (!participant) return bad("Could not finish signing you in. Try again.", 503);
 
   const token = await signSession({ pid: participant.id }, secret);
   return json({ ok: true, returning: !!existing, participant: publicParticipant(participant) }, 200,

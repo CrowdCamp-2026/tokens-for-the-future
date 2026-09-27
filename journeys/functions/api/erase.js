@@ -5,7 +5,7 @@
 // erase their own record, confirmed by typing their name (the
 // delete-repository pattern: a lone button is too easy to hit on a phone).
 //
-// ERASED: name, affiliation, contact, network hash, country. The contact is
+// ERASED: name, affiliation, pseudonym, contact, network hash, country. The contact is
 //   nulled, so the record can never be signed back into.
 // KEPT: the notes, shown as "Anonymous" from then on. Topic summaries count
 //   notes by content, never by who wrote them, so nothing else changes.
@@ -24,7 +24,7 @@ export async function onRequestPost({ request, env }) {
   const at = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(
-      `UPDATE participant SET name = NULL, affiliation = NULL, contact = NULL, contact_kind = NULL,
+      `UPDATE participant SET name = NULL, affiliation = NULL, pseudo = NULL, contact = NULL, contact_kind = NULL,
               follow_up = 0, net_hash = NULL, country = NULL, erased_at = ?1 WHERE id = ?2`
     ).bind(at, p.id),
     env.DB.prepare("UPDATE notes SET show_name = 0, author = NULL WHERE participant_id = ?1").bind(p.id),

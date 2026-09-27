@@ -8,7 +8,7 @@
   const STATUS = { open: "Open", planned: "Planned", done: "Done", wontfix: "Won’t do" };
   const horizon = m => m === null || m === undefined ? "" : m === 0 ? "Already" : m < 12 ? `${m} mo` : `${m / 12} yr`;
 
-  let token = null, tab = "feedback";
+  let token = null, tab = "feedback", role = null;
   let rows = { feedback: [], notes: [], participants: [] };
   let items = {}, topics = {};
 
@@ -17,7 +17,7 @@
 
   async function admin(query = "", opts = {}) {
     const res = await fetch("/api/admin" + query, {
-      ...opts, headers: { authorization: `Bearer ${token}`, "content-type": "application/json", ...(opts.headers || {}) },
+      ...opts, headers: { ...(token && token !== "dev" ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json", ...(opts.headers || {}) },
     });
     if (res.status === 403) { const e = new Error("That token is not valid."); e.locked = true; throw e; }
     if (!res.ok) throw new Error((await res.text()) || "The request failed.");
@@ -51,7 +51,12 @@
     setToken(v);
     try {
       await Promise.all([loadProgram(), loadAll()]);
+      // Also sign this browser in as admin for the app (the feedback box).
+      const who = await (await admin("", { method: "POST", body: JSON.stringify({ login: true }) })).json();
+      role = who.role;
       $("locked").hidden = true;
+      $("appbar-who").textContent = `${who.email} · ${who.role === "super" ? "Super admin" : "Admin"}`;
+      renderTable();
       $("panel").hidden = false;
     } catch (e) {
       setToken(null);
@@ -95,20 +100,22 @@
         `<td>${esc(RELATION[n.relation] || n.relation)}</td>`,
         `<td class="nowrap">${esc(horizon(n.horizon_months))}${n.horizon_note ? `<div class="sub">${esc(n.horizon_note)}</div>` : ""}</td>`,
         `<td class="wide"><b>${esc(n.point)}</b>${n.why ? `<div>Why: ${esc(n.why)}</div>` : ""}${n.evidence ? `<div>From the talk: ${esc(n.evidence)}</div>` : ""}</td>`,
-        `<td>${esc(n.name || "Anonymous")}<div class="sub">${esc(n.affiliation || "")}</div></td>`,
+        `<td>${esc(n.pseudo || "Anonymous")}<div class="sub">${esc([n.name, n.affiliation].filter(Boolean).join(", "))}</div></td>`,
         `<td class="nowrap">${esc(when(n.created_at))}</td>`,
         `<td><button class="btn ghost small" type="button" data-hide="${n.id}" data-hidden="${n.hidden ? 1 : 0}">${n.hidden ? "Restore" : "Hide"}</button></td>`,
       ],
       rowClass: n => (n.hidden ? "muted" : ""),
     },
     participants: {
-      cols: ["Name", "Affiliation", "Contact", "Follow-up", "Country", "Notes", "Joined", "Last seen"],
+      // The server only sends contacts to the super admin.
+      cols: () => ["Pseudonym", "Name", "Affiliation", ...(role === "super" ? ["Contact"] : []), "Follow-up", "Country", "Notes", "Joined", "Last seen"],
       row: p => p.erased_at
-        ? [`<td colspan="5"><i>Erased ${esc(when(p.erased_at))}</i></td>`, `<td class="num">${p.notes}</td>`, `<td class="nowrap">${esc(when(p.created_at))}</td>`, `<td></td>`]
+        ? [`<td colspan="${role === "super" ? 6 : 5}"><i>Erased ${esc(when(p.erased_at))}</i></td>`, `<td class="num">${p.notes}</td>`, `<td class="nowrap">${esc(when(p.created_at))}</td>`, `<td></td>`]
         : [
+          `<td>${esc(p.pseudo || "")}</td>`,
           `<td>${esc(p.name)}</td>`,
           `<td>${esc(p.affiliation)}</td>`,
-          `<td class="nowrap">${esc(p.contact)}</td>`,
+          ...(role === "super" ? [`<td class="nowrap">${esc(p.contact)}</td>`] : []),
           `<td>${p.follow_up ? "Yes" : "No"}</td>`,
           `<td>${esc(p.country || "")}</td>`,
           `<td class="num">${p.notes}</td>`,
@@ -124,11 +131,13 @@
     const q = $("c-filter").value.trim().toLowerCase();
     const list = rows[tab].filter(r => !q || JSON.stringify(r).toLowerCase().includes(q)
       || (tab === "notes" && (items[r.item_id]?.title || "").toLowerCase().includes(q)));
-    $("c-table").innerHTML = list.length
-      ? `<table><thead><tr>${def.cols.map(c => `<th scope="col">${c}</th>`).join("")}</tr></thead>
+    const cols = typeof def.cols === "function" ? def.cols() : def.cols;
+    const note = tab === "participants" && role !== "super" ? `<p class="fine c-note">Email and phone numbers are visible to the super admin only.</p>` : "";
+    $("c-table").innerHTML = note + (list.length
+      ? `<table><thead><tr>${cols.map(c => `<th scope="col">${c}</th>`).join("")}</tr></thead>
          <tbody>${list.map(r => `<tr class="${def.rowClass?.(r) || ""}">${def.row(r).join("")}</tr>`).join("")}</tbody></table>
          <p class="fine">${list.length} of ${rows[tab].length} rows</p>`
-      : `<p class="pulse-empty">${rows[tab].length ? "No rows match the filter." : "Nothing here yet."}</p>`;
+      : `<p class="pulse-empty">${rows[tab].length ? "No rows match the filter." : "Nothing here yet."}</p>`);
   }
 
   // ---------- Actions ----------
@@ -149,7 +158,9 @@
   $("c-filter").addEventListener("input", renderTable);
   $("c-refresh").addEventListener("click", () => loadAll().then(() => toast("Refreshed")).catch(e => toast(e.message)));
   $("c-lock").addEventListener("click", () => {
+    fetch("/api/admin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logout: true }) }).catch(() => {});
     setToken(null);
+    $("appbar-who").textContent = "";
     rows = { feedback: [], notes: [], participants: [] };
     $("c-table").innerHTML = "";
     $("panel").hidden = true;

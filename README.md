@@ -17,4 +17,4 @@ npx wrangler d1 migrations apply crowdwork-journeys --local
 npx wrangler pages dev --port 8792
 ```
 
-Local secrets go in `journeys/.dev.vars` (`ADMIN_TOKEN`, `SESSION_SECRET`), which is not committed.
+Local secrets go in `journeys/.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`), which is not committed. Generate admin tokens with `node build/make-admin-tokens.mjs` (see `journeys/README.md`).

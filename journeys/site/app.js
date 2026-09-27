@@ -23,7 +23,7 @@
   const ANCHOR_WORDS = 120;  // the bar fills here; there is no limit and no instruction to reach it
 
   let DATA = null, TOPICS = {}, stars = loadStars();
-  let API = false, ME = null, COUNTRY = null;
+  let API = false, ME = null, COUNTRY = null, ADMIN = null, JUST_JOINED = false;
   let NOTES = { topic: null, ok: false, byItem: new Map(), summary: null };
   let currentKey = null;
   let lastPage = "#";  // where the person was before opening feedback
@@ -95,7 +95,7 @@
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
         <button class="btn wide" type="submit">Continue</button>
         <p class="form-err" role="alert">${esc(msg)}</p>
-        <p class="fine">By continuing you accept the <a href="privacy.html">privacy notice</a>. Your name and affiliation appear next to the notes you post. Your email or phone number is never shown.</p>
+        <p class="fine">By continuing you accept the <a href="privacy.html">privacy notice</a>. Other attendees see only a pseudonym, which you get next. Your name, affiliation and contact are seen by the organizing team only.</p>
       </form>`;
     const sel = document.getElementById("j-dial");
     for (const [iso, name, dial] of window.DIAL_CODES || []) {
@@ -124,8 +124,8 @@
     try {
       const out = await api("/api/join", { method: "POST", body: JSON.stringify(payload) });
       ME = out.participant;
+      JUST_JOINED = !out.returning;
       route();
-      if (out.returning) setTimeout(() => toast("Welcome back"), 50);
     } catch (e) {
       err.textContent = e.message === "Failed to fetch" ? "You seem to be offline. Try again." : e.message;
       btn.disabled = false; btn.textContent = "Continue";
@@ -140,6 +140,7 @@
       <a class="back" href="#">← All topics</a>
       <div class="eyebrow"><span>Your details</span><span></span></div>
       <dl class="details">
+        <dt>Pseudonym</dt><dd><b>${esc(ME.pseudo || "")}</b><div class="fine">What other attendees see on your notes.</div></dd>
         <dt>Name</dt><dd>${esc(ME.name)}</dd>
         <dt>Affiliation</dt><dd>${esc(ME.affiliation)}</dd>
         <dt>${ME.contact_kind === "phone" ? "Phone" : "Email"}</dt><dd>${esc(ME.contact)}</dd>
@@ -149,7 +150,7 @@
       <div class="actions"><button class="btn ghost" type="button" id="logout">Sign out on this device</button></div>
       <section class="erase">
         <h3>Erase my details</h3>
-        <p>This removes your name, affiliation and ${ME.contact_kind === "phone" ? "phone number" : "email"}. Your notes stay on the site as “Anonymous”. This cannot be undone.</p>
+        <p>This removes your name, affiliation, pseudonym and ${ME.contact_kind === "phone" ? "phone number" : "email"}. Your notes stay on the site as “Anonymous”. This cannot be undone.</p>
         <label class="lbl" for="erase-confirm">Type your name to confirm</label>
         <input type="text" id="erase-confirm" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${esc(ME.name)}">
         <div class="actions"><button class="btn danger" type="button" id="erase-go">Erase my details permanently</button></div>
@@ -182,7 +183,7 @@
   const pageLabel = h => h === "#" || h === "" ? "Home" : h === "#me" ? "Your details" : TOPICS[h.slice(1)]?.name || h;
 
   function feedbackItemHTML(f) {
-    const who = f.author ? `${esc(f.author)}${f.affiliation ? `, ${esc(f.affiliation)}` : ""}` : "Anonymous";
+    const who = esc(f.author || "An admin");
     return `<li class="fb-item${f.status === "done" || f.status === "wontfix" ? " closed" : ""}">
       <button class="vote" type="button" data-vote="${f.id}" aria-pressed="${f.mine}" aria-label="${f.mine ? "Remove your +1" : "+1 this"}"><b>+1</b><span>${f.votes}</span></button>
       <div>
@@ -210,7 +211,7 @@
       <a class="back" href="${esc(from || "#")}">← Back to ${esc(pageLabel(from))}</a>
       <div class="eyebrow"><span>Improve this app</span><span>Built together</span></div>
       <h2 class="topic-title">Feedback</h2>
-      <p class="lede">Crowd Work Journeys is being built at CrowdCamp by the people using it. Tell us what to fix or add. Everyone signed in sees this list and can +1 what matters most.</p>
+      <p class="lede">For the organizing team: tell each other what to fix or add in the app. Only admins see this list, and each of you can +1 what matters most.</p>
       <form class="note-form fb-form" id="fb-form" novalidate>
         <fieldset><legend>What kind of feedback?</legend><div class="seg">
           ${Object.entries(FB_KIND).map(([v, l], i) => `<label><input type="radio" name="kind" value="${v}"${i === 1 ? " checked" : ""}><span>${l}</span></label>`).join("")}
@@ -225,6 +226,17 @@
     window.scrollTo(0, 0);
     try { renderFeedbackList((await api("/api/feedback")).items); }
     catch (e) { document.getElementById("fb-list").innerHTML = `<p class="pulse-off">${esc(e.message)}</p>`; }
+  }
+
+  function feedbackLocked() {
+    currentKey = null;
+    document.title = "Feedback · Crowd Work Journeys";
+    app.innerHTML = `
+      <a class="back" href="${esc(lastPage || "#")}">← Back</a>
+      <div class="eyebrow"><span>Improve this app</span><span>Organizing team</span></div>
+      <h2 class="topic-title">Feedback is for the organizing team</h2>
+      <p class="lede">If you are one of the admins, open the <a href="console">console</a> with your personal token. The feedback box then appears on every page in this browser.</p>`;
+    window.scrollTo(0, 0);
   }
 
   async function submitFeedback(form) {
@@ -261,6 +273,7 @@
       ${whoHTML()}
       <div class="eyebrow"><span>HCOMP + CI 2026 · Alexandria, VA</span><span>Sep 28–30</span></div>
       <h1>Crowd Work Journeys</h1>
+      ${JUST_JOINED ? `<p class="hook">Welcome, <b>${esc(ME.pseudo)}</b>. That is the name other attendees see on your notes.</p>` : ""}
       <p class="lede">The 2013 paper named twelve research areas; we added a thirteenth. Pick the one you care about. We’ll map your route through this week’s sessions and posters, and you can leave notes on the talks you attend.</p>
       ${dims.map(d => `
         <section class="dim${d.name === "New in 2026" ? " new" : ""}">
@@ -298,7 +311,7 @@
 
   function noteHTML(n) {
     const parts = PARTS[n.kind] || PARTS.comment;
-    const byline = n.author ? `${esc(n.author)}${n.affiliation ? `, ${esc(n.affiliation)}` : ""}` : "Anonymous";
+    const byline = n.author ? esc(n.author) : "Anonymous";
     return `<li class="note">
       <div class="n-head"><span class="n-kind n-${esc(n.kind)}">${esc(KIND[n.kind])}</span>
         <span class="n-rel">${esc(RELATION[n.relation])}</span>
@@ -349,7 +362,7 @@
         <input type="text" id="nf-hnote" name="horizon_note" maxlength="300" placeholder="What has to happen first?">
       </fieldset>
       <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <p class="fine">Posted as <b>${esc(ME?.name || "")}</b>, ${esc(ME?.affiliation || "")}. Notes are public on this site, and the CrowdCamp team may quote them without names in a research write-up.</p>
+      <p class="fine">Posted as <b>${esc(ME?.pseudo || "")}</b>. Notes are public on this site under your pseudonym, and the CrowdCamp team may quote them without names in a research write-up.</p>
       <div class="form-actions">
         <button class="btn" type="submit">Post note</button>
         <button class="btn ghost" type="button" data-cancel>Cancel</button>
@@ -515,19 +528,22 @@
   }
 
   function slotHTML(plan, key, tipUsed) {
-    const time = b => `<div class="time">${b.start}</div>`;
+    const t12 = hm => { const [h, m] = hm.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+    const time = b => `<div class="time">${t12(b.start)} – ${t12(b.end)}</div>`;
+    // The program app marks each session with its type colour; so do we.
+    const stripe = b => /^#[0-9a-f]{3,8}$/i.test(b.color || "") ? ` style="--stripe:${b.color}"` : "";
     if (plan.type === "break") {
       const tip = !tipUsed.has(plan.block.day) && /Coffee/.test(plan.block.name);
       if (tip) tipUsed.add(plan.block.day);
-      return `<div class="slot quiet">${time(plan.block)}<div><div class="s-name">${esc(plan.block.name)}</div>
+      return `<div class="slot quiet">${time(plan.block)}<div class="s-card"${stripe(plan.block)}><div class="s-name">${esc(plan.block.name)}</div>
         ${tip ? `<p class="tip">Find one speaker from the morning and ask them your 2026 question.</p>` : ""}</div></div>`;
     }
     if (plan.type === "info") {
-      return `<div class="slot quiet">${time(plan.block)}<div><div class="s-name">${esc(plan.block.name)}</div>
+      return `<div class="slot quiet">${time(plan.block)}<div class="s-card"${stripe(plan.block)}><div class="s-name">${esc(plan.block.name)}</div>
         <div class="room">${esc(plan.block.room)}</div></div></div>`;
     }
     if (plan.type === "free") {
-      return `<div class="slot">${time(plan.blocks[0])}<div>
+      return `<div class="slot">${time(plan.blocks[0])}<div class="s-card"${stripe(plan.blocks[0])}>
         <div class="s-head"><span class="pill free">Your call</span></div>
         <p class="why">Nothing here matches this topic directly. Either session works:</p>
         <div class="alt">${plan.blocks.map(b => `<b>${esc(b.name)}</b> · ${esc(b.room)}`).join("<br>")}</div>
@@ -541,9 +557,9 @@
     else if (plan.type === "pick") why = `${hits.length} of ${b.contents.length} ${b.contents.length === 1 ? "item matches" : "items match"} your topic.`;
     else if (hits.length) why = `Relevant to your topic:`;
     const alts = plan.alts?.length ? `<div class="alt">Also in this slot: ${plan.alts.map(a => `<b>${esc(a.b.name)}</b> · ${esc(a.b.room)}${a.s ? ` (${matches(a.b, key).length} matching)` : ""}`).join("; ")}</div>` : "";
-    return `<div class="slot">${time(b)}<div>
+    return `<div class="slot">${time(b)}<div class="s-card"${stripe(b)}>
       <div class="s-head">${pill}<span class="s-name">${esc(b.name)}</span></div>
-      <div class="room">${esc(b.room)} · until ${b.end}</div>
+      <div class="room">${esc(b.room)}</div>
       ${why ? `<p class="why">${why}</p>` : ""}
       ${hits.length ? `<ul class="items">${hits.map(c => itemHTML(c, key)).join("")}</ul>` : ""}
       ${alts}${restHTML(plan, key)}</div></div>`;
@@ -701,12 +717,19 @@
   fab.hidden = true;
   document.body.appendChild(fab);
 
+  function updateAppbar() {
+    const el = document.getElementById("appbar-who");
+    if (el) el.innerHTML = ME ? `${esc(ME.pseudo || ME.name)} · <a href="#me">Your details</a>` : "";
+  }
+
   function route() {
     const k = location.hash.slice(1);
-    fab.hidden = !ME || k === "feedback";
+    updateAppbar();
+    if (k) JUST_JOINED = false;
+    fab.hidden = !ADMIN || k === "feedback";
     if (API && !ME) return splash();
     if (k !== "feedback") lastPage = location.hash || "#";
-    if (k === "feedback" && ME) return feedbackPage();
+    if (k === "feedback" && ME) return ADMIN ? feedbackPage() : feedbackLocked();
     if (k === "me" && ME) return mePage();
     k && k !== "me" && k !== "feedback" ? journey(k) : home();
   }
@@ -722,6 +745,7 @@
     API = !!me;
     ME = me?.participant || null;
     COUNTRY = me?.country || null;
+    ADMIN = me?.admin || null;
     route();
   }).catch(() => { app.innerHTML = `<p class="loading">Could not load the program. Refresh the page to try again.</p>`; });
 })();

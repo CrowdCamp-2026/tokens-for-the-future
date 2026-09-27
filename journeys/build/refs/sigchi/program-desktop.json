@@ -1,0 +1,62 @@
+{
+ "vars": {
+  "--font-brand": "montserrat-variable",
+  "--font-plain": "montserrat-variable",
+  "--primary": "",
+  "--color-primary": "",
+  "--conference-color": "",
+  "--brand-color": "",
+  "--mat-sys-primary": "",
+  "--mat-sys-surface": "",
+  "--mat-sys-on-surface": "",
+  "--mat-app-background-color": "#fafafa"
+ },
+ "body": {
+  "tag": "BODY",
+  "cls": "",
+  "text": "",
+  "font": "montserrat-variable, system-ui, sans-serif",
+  "size": "14px",
+  "weight": "400",
+  "color": "rgb(44, 45, 49)",
+  "bg": "rgb(245, 246, 250)",
+  "radius": "0px",
+  "border": "0px none rgb(44, 45, 49)",
+  "shadow": "none",
+  "pad": "0px"
+ },
+ "header": [],
+ "h": [],
+ "cards": [],
+ "chips": [],
+ "buttons": [],
+ "links": [
+  "https://programs.sigchi.org/assets/css/spinner.css",
+  "https://programs.sigchi.org/assets/css/browser-not-supported.css",
+  "https://programs.sigchi.org/styles-5SKIM3RN.css"
+ ],
+ "topColors": [
+  [
+   "rgb(0, 0, 0)",
+   66
+  ],
+  [
+   "rgb(44, 45, 49)",
+   36
+  ],
+  [
+   "rgb(245, 246, 250)",
+   2
+  ]
+ ],
+ "topFonts": [
+  [
+   "Times",
+   33
+  ],
+  [
+   "montserrat-variable, system-ui, sans-serif",
+   18
+  ]
+ ]
+}

@@ -16,6 +16,7 @@ def clean(s):
     return re.sub(r"\s+", " ", html.unescape(s)).strip()
 
 ctype = {c["id"]: c["name"] for c in P["contentTypes"]}
+color = {c["id"]: c.get("color") for c in P["contentTypes"]}  # the program app colours sessions by type
 rooms = {r["id"]: re.sub(r"^Room ", "", r["name"]) for r in P["rooms"]}
 people = {p["id"]: f'{p["firstName"]} {p["lastName"]}'.strip() for p in P["people"]}
 slots = {t["id"]: t for t in P["timeSlots"]}
@@ -36,11 +37,11 @@ for s in P["sessions"]:
     t = slots[s["timeSlotId"]]
     kind = ctype[s["typeId"]]
     if kind in SKIP_TYPES: continue
-    blocks.append({"id": s["id"], "name": clean(s["name"]), "kind": kind,
+    blocks.append({"id": s["id"], "name": clean(s["name"]), "kind": kind, "color": color.get(s["typeId"]),
                    "room": rooms.get(s.get("roomId"), ""), "start": wall(t["startDate"]), "end": wall(t["endDate"]),
                    "contents": [content(c) for c in s["contentIds"] if ctype[contents[c]["typeId"]] not in SKIP_TYPES]})
 for e in P["events"]:
-    blocks.append({"id": e["id"], "name": clean(e["name"]), "kind": "Break" if "Break" in e["name"] else "Event",
+    blocks.append({"id": e["id"], "name": clean(e["name"]), "kind": "Break" if "Break" in e["name"] else "Event", "color": color.get(e["typeId"]),
                    "room": e.get("location") or "", "start": wall(e["startDate"]), "end": wall(e["endDate"]),
                    "contents": [content(c) for c in e["contentIds"]]})
 

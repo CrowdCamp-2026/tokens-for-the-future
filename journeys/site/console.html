@@ -7,20 +7,21 @@
 <title>Console · Crowd Work Journeys</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400..600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=20260927e">
 </head>
 <body class="console">
+<header class="appbar"><a class="appbar-title" href="./">Crowd Work Journeys</a><span class="appbar-who" id="appbar-who"></span></header>
 <main>
   <div class="eyebrow"><span>Crowd Work Journeys</span><span>Organizer console</span></div>
 
   <form id="locked" class="join" novalidate>
     <h2 class="join-title">Organizer console</h2>
-    <label class="lbl" for="c-token">Admin token</label>
+    <label class="lbl" for="c-token">Your admin token</label>
     <input type="password" id="c-token" autocomplete="current-password" required>
     <button class="btn wide" type="submit">Open console</button>
     <p class="form-err" role="alert" id="c-lock-err"></p>
-    <p class="fine">The token stays in this browser tab and is forgotten when you close it.</p>
+    <p class="fine">Use the personal token you were given. It stays in this browser tab. Opening the console also turns on the feedback box in the app for this browser, until you lock the console.</p>
   </form>
 
   <section id="panel" hidden>
@@ -35,6 +36,7 @@
         <input type="search" id="c-filter" placeholder="Filter rows" aria-label="Filter rows">
         <button class="btn ghost" type="button" id="c-csv">Download CSV</button>
         <button class="btn ghost" type="button" id="c-refresh">Refresh</button>
+        <a class="btn ghost" href="./#feedback">Feedback box</a>
         <button class="btn ghost" type="button" id="c-lock">Lock</button>
       </div>
     </div>
@@ -42,6 +44,6 @@
     <div class="c-table" id="c-table" tabindex="0" aria-live="polite"></div>
   </section>
 </main>
-<script src="console.js"></script>
+<script src="console.js?v=20260927e"></script>
 </body>
 </html>

@@ -57,10 +57,10 @@ async function verifySession(value, secret) {
   } catch { return null; }
 }
 
-function readCookie(request) {
+function readCookie(request, name = COOKIE) {
   for (const part of (request.headers.get("Cookie") || "").split(";")) {
     const [k, ...rest] = part.trim().split("=");
-    if (k === COOKIE) return rest.join("=");
+    if (k === name) return rest.join("=");
   }
   return null;
 }
@@ -68,6 +68,12 @@ function readCookie(request) {
 const secure = request => (new URL(request.url).protocol === "https:" ? "; Secure" : "");
 export const cookieHeader = (request, value) => `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
 export const clearCookieHeader = request => `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=0`;
+
+// The admin cookie, set when an admin opens the console with their token.
+// It lets the same browser use admin-only parts of the app (the feedback box).
+const ADMIN_COOKIE = "cwj_admin";
+export const adminCookieHeader = (request, value) => `${ADMIN_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
+export const clearAdminCookieHeader = request => `${ADMIN_COOKIE}=; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=0`;
 
 // The signed-in participant, or null. An erased participant is signed out.
 export async function currentParticipant(request, env) {
@@ -80,7 +86,7 @@ export async function currentParticipant(request, env) {
 }
 
 export const publicParticipant = p => ({
-  name: p.name, affiliation: p.affiliation, contact: p.contact, contact_kind: p.contact_kind, follow_up: !!p.follow_up,
+  pseudo: p.pseudo, name: p.name, affiliation: p.affiliation, contact: p.contact, contact_kind: p.contact_kind, follow_up: !!p.follow_up,
 });
 
 // ---------------------------------------------------------------------------
@@ -131,4 +137,96 @@ export function composePhone(dial, number) {
 export function devBypass(request, env) {
   const host = new URL(request.url).hostname;
   return env.DEV_BYPASS === "1" && (host === "localhost" || host === "127.0.0.1");
+}
+
+// ---------------------------------------------------------------------------
+// Admins. Each admin has a personal token and a role ("admin" or "super").
+// ADMIN_TOKENS is a JSON list of {email, role, hash}, where hash is the SHA-256
+// of the token (hex): the server never holds a working token. Generate with
+// build/make-admin-tokens.mjs. Optionally, Cloudflare Access can front
+// /console and /api/admin; its signed JWT (Cf-Access-Jwt-Assertion) is verified
+// here and mapped to the same list by email.
+// ---------------------------------------------------------------------------
+export function adminList(env) {
+  try {
+    const list = JSON.parse(env.ADMIN_TOKENS || "[]");
+    return Array.isArray(list) ? list.filter(a => a && a.email && a.hash && ["admin", "super"].includes(a.role))
+      .map(a => ({ email: String(a.email).toLowerCase(), role: a.role, hash: String(a.hash).toLowerCase() })) : [];
+  } catch { return []; }
+}
+
+export async function sha256Hex(text) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Compare two equal-length hex strings without an early exit.
+function sameHex(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+const b64urlBytes = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+const b64urlJson = s => JSON.parse(new TextDecoder().decode(b64urlBytes(s)));
+
+let certsCache = null;  // { at, keys }, per isolate
+async function accessKeys(team) {
+  if (certsCache && Date.now() - certsCache.at < 60 * 60 * 1000) return certsCache.keys;
+  const res = await fetch(`https://${team}/cdn-cgi/access/certs`);
+  if (!res.ok) throw new Error("Could not load Access signing keys");
+  const { keys } = await res.json();
+  certsCache = { at: Date.now(), keys };
+  return keys;
+}
+
+// The verified email from a Cloudflare Access JWT, or null.
+// `keys` can be passed in by tests; otherwise they are fetched from the team domain.
+export async function verifyAccessJwt(token, { team, aud, keys } = {}) {
+  if (!token || !team || !aud) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  let header, claims;
+  try { header = b64urlJson(parts[0]); claims = b64urlJson(parts[1]); } catch { return null; }
+  if (header.alg !== "RS256") return null;
+  const jwk = (keys || await accessKeys(team)).find(k => k.kid === header.kid);
+  if (!jwk) return null;
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64urlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
+  if (!ok) return null;
+  const now = Date.now() / 1000;
+  const audOk = Array.isArray(claims.aud) ? claims.aud.includes(aud) : claims.aud === aud;
+  if (!audOk || claims.iss !== `https://${team}` || !(claims.exp > now) || (claims.nbf && claims.nbf > now + 60)) return null;
+  return typeof claims.email === "string" ? claims.email.toLowerCase() : null;
+}
+
+// Who is acting as admin, or null: { email, role: "admin" | "super", via: "token" | "access" | "dev" }.
+export async function adminIdentity(request, env, { allowDev = true } = {}) {
+  const admins = adminList(env);
+  const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (token) {
+    const hash = await sha256Hex(token);
+    const a = admins.find(x => sameHex(x.hash, hash));
+    if (a) return { email: a.email, role: a.role, via: "token", h: a.hash.slice(0, 16) };
+  }
+  // The admin cookie names the token it came from (first 16 hex of its hash), so
+  // rotating ADMIN_TOKENS also signs out every admin cookie.
+  let secret = null;
+  try { secret = requireSecret(request, env); } catch { /* no cookie check without a secret */ }
+  const cookie = secret && await verifySession(readCookie(request, ADMIN_COOKIE), secret);
+  if (cookie?.adm) {
+    if (cookie.h === "dev" && devBypass(request, env)) return { email: cookie.adm, role: cookie.role, via: "dev" };
+    const a = admins.find(x => x.email === cookie.adm && x.hash.startsWith(cookie.h || "-"));
+    if (a) return { email: a.email, role: a.role, via: "cookie", h: cookie.h };
+  }
+  const jwt = request.headers.get("Cf-Access-Jwt-Assertion");
+  if (jwt && env.ACCESS_TEAM_DOMAIN && env.ACCESS_AUD) {
+    const email = await verifyAccessJwt(jwt, { team: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD }).catch(() => null);
+    const a = email && admins.find(x => x.email === email);
+    if (a) return { email: a.email, role: a.role, via: "access" };
+  }
+  // Local development only, and only when no token was sent, so roles can still be tested.
+  if (allowDev && !token && devBypass(request, env)) return { email: "local developer", role: "super", via: "dev", h: "dev" };
+  return null;
 }
