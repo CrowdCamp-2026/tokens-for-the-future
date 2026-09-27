@@ -1,4 +1,4 @@
-# Crowd Work Journeys
+# Tokens of the Future
 
 Pick one of the 12 research areas from *The Future of Crowd Work* (Kittur et al., CSCW 2013), plus governance, and get a route through HCOMP + CI 2026 (Sep 28–30).
 

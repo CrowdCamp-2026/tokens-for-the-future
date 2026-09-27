@@ -6,7 +6,7 @@ Material from the CrowdCamp 2026 team revisiting *The Future of Crowd Work* (Kit
 | --- | --- |
 | `transcripts/` | Transcripts of the team's working sessions. |
 | `wall/` | The *Future of Crowd Work* wall: printable dot-voting sheets, one per research area (the 12 from 2013 plus governance), each asking whether the 2013 vision happened, was changed by AI, or is still open, and a closing “What’s missing?” sheet. HTML source and PDF. |
-| `journeys/` | **Crowd Work Journeys**, a Cloudflare Pages app that routes attendees through HCOMP + CI 2026 (Sep 28–30) by research area and collects their notes on talks. See [`journeys/README.md`](journeys/README.md). |
+| `journeys/` | **Tokens of the Future**, a Cloudflare Pages app that routes attendees through HCOMP + CI 2026 (Sep 28–30) by research area and collects their notes on talks. See [`journeys/README.md`](journeys/README.md). |
 
 ## Quick start (journeys)
 

@@ -30,7 +30,7 @@ const issued = people.map(p => ({ ...p, token: randomBytes(32).toString("base64u
 const secret = JSON.stringify(issued.map(({ email, role, token }) => ({ email, role, hash: createHash("sha256").update(token).digest("hex") })));
 
 const handout = [
-  `# Crowd Work Journeys admin tokens, generated ${new Date().toISOString()}${dev ? " (LOCAL DEV ONLY)" : ""}`,
+  `# Tokens of the Future admin tokens, generated ${new Date().toISOString()}${dev ? " (LOCAL DEV ONLY)" : ""}`,
   "# Give each person only their own line. Delete this file once they have them.",
   "# Open the console, paste the token when asked.",
   "",

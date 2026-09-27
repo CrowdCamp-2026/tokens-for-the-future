@@ -18,7 +18,7 @@ def questions():
 def page(size, scale):
     w, h = size
     shown = SITE_URL.replace("https://", "")
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Crowd Work Journeys</title>
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Tokens of the Future</title>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400..600&display=block" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>

@@ -1,4 +1,4 @@
-// Crowd Work Journeys: sign in, pick a topic, get a route through HCOMP + CI 2026, leave notes on talks.
+// Tokens of the Future: sign in, pick a topic, get a route through HCOMP + CI 2026, leave notes on talks.
 (() => {
   const app = document.getElementById("app");
   const DAY_NAMES = { "2026-09-28": "Monday", "2026-09-29": "Tuesday", "2026-09-30": "Wednesday" };
@@ -89,10 +89,10 @@
   function splash(msg = "") {
     currentKey = null;
     fab.hidden = true;
-    document.title = "Crowd Work Journeys";
+    document.title = "Tokens of the Future";
     app.innerHTML = `
       <div class="eyebrow"><span>CrowdCamp 2026 · at HCOMP + CI, Alexandria, VA</span><span>Sep 28–30</span></div>
-      <h1>Crowd Work Journeys</h1>
+      <h1>Tokens of the Future</h1>
       <p class="unofficial">An independent project by CrowdCamp 2026 participants. It is not an official app of HCOMP + CI 2026 or SIGCHI.</p>
       <p class="lede">In 2013, a paper born at CrowdCamp asked: <em>“Can we foresee a future crowd workplace in which we would want our children to participate?”</em> This week, we find out from the inside. You are the crowd: pick a question, follow your route through the conference, and do one small task at each talk you attend, a note on what it says about your question.</p>
       <p class="hook"><b>Why now:</b> Amazon Mechanical Turk shuts down on September 30, 2026, the last day of this conference. For three days, the people who study crowd work do it.</p>
@@ -153,7 +153,7 @@
   // ---------- Your details ----------
   function mePage(editing = false, saved = "") {
     currentKey = null;
-    document.title = "Your details · Crowd Work Journeys";
+    document.title = "Your details · Tokens of the Future";
     if (editing) return editPage();
     app.innerHTML = `
       <a class="back" href="#">← All topics</a>
@@ -287,7 +287,7 @@
 
   async function feedbackPage() {
     currentKey = null;
-    document.title = "Feedback · Crowd Work Journeys";
+    document.title = "Feedback · Tokens of the Future";
     const from = lastPage;
     app.innerHTML = `
       ${whoHTML()}
@@ -313,7 +313,7 @@
 
   function feedbackLocked() {
     currentKey = null;
-    document.title = "Feedback · Crowd Work Journeys";
+    document.title = "Feedback · Tokens of the Future";
     app.innerHTML = `
       <a class="back" href="${esc(lastPage || "#")}">← Back</a>
       <div class="eyebrow"><span>Improve this app</span><span>Organizing team</span></div>
@@ -343,7 +343,7 @@
   // ---------- Home ----------
   function home() {
     currentKey = null;
-    document.title = "Crowd Work Journeys";
+    document.title = "Tokens of the Future";
     const counts = {};
     for (const t of DATA.topics) counts[t.key] = DATA.blocks.reduce((n, b) => n + matches(b, t.key).length, 0);
     const dims = [];
@@ -355,7 +355,7 @@
     app.innerHTML = `
       ${whoHTML()}
       <div class="eyebrow"><span>HCOMP + CI 2026 · Alexandria, VA</span><span>Sep 28–30</span></div>
-      <h1>Crowd Work Journeys</h1>
+      <h1>Tokens of the Future</h1>
       ${JUST_JOINED ? `<p class="hook">Welcome, <b>${esc(ME.pseudo)}</b>. That is your worker name this week: other participants see it on your notes, and nothing else about you.</p>` : ""}
       <p class="lede">The 2013 paper named twelve research areas; we added a thirteenth. Pick the one you care about. We’ll map your route through this week’s sessions and posters. Your task at each talk: a short note on what it says about your question. Every topic page shows back what the crowd found.</p>
       ${dims.map(d => `
@@ -653,7 +653,7 @@
     const t = TOPICS[key];
     if (!t) return home();
     currentKey = key;
-    document.title = `${t.name} · Crowd Work Journeys`;
+    document.title = `${t.name} · Tokens of the Future`;
     const plans = [];
     let sessions = 0, items = 0, posters = 0;
     for (const [day, slots] of Object.entries(slotsByDay())) {
@@ -725,7 +725,7 @@
         `SUMMARY:${icsText(`${b.name} (${t.name})`)}`, `LOCATION:${icsText(b.room + ", Virginia Tech Academic Building One")}`,
         `DESCRIPTION:${icsText(desc)}`, "END:VEVENT"].join("\r\n"));
     }
-    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CrowdCamp 2026//Crowd Work Journeys//EN", "CALSCALE:GREGORIAN", ...ev, "END:VCALENDAR"].join("\r\n");
+    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CrowdCamp 2026//Tokens of the Future//EN", "CALSCALE:GREGORIAN", ...ev, "END:VCALENDAR"].join("\r\n");
     const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `hcomp-ci-2026-${t.key}.ics` });
     document.body.appendChild(a); a.click(); a.remove();
