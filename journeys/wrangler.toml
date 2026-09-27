@@ -1,0 +1,12 @@
+name = "crowdwork-journeys"
+compatibility_date = "2026-09-01"
+pages_build_output_dir = "site"
+
+# Create the real database before the first deploy:
+#   npx wrangler d1 create crowdwork-journeys
+# then paste its database_id below and run the migration with --remote.
+[[d1_databases]]
+binding = "DB"
+database_name = "crowdwork-journeys"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
