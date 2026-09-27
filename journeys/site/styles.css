@@ -1,37 +1,50 @@
+/* Design tokens, in two layers.
+   The --sigchi-* tokens copy the light theme of the SIGCHI program app
+   (programs.sigchi.org/ci/2026), with its own names and values, as served on
+   27 Sep 2026: white header and cards on a pale page, accent #497CFF, a
+   coloured stripe per session type. Components use only the semantic tokens
+   below them, so retuning the look means editing this block alone.
+   Light only: we follow the program's light content area, and do not switch
+   to a dark variant when the device is in dark mode. */
 :root {
-  --paper: #FBFBFA;
-  --surface: #FFFFFF;
-  --ink: #16202B;
-  --ink-2: #3A4552;
-  --muted: #66717E;
-  --rule: #D9DEE4;
-  --rule-strong: #16202B;
-  --then: #2C4F8E;
-  --now: #A4541A;
-  --now-tint: #F8EDE4;
-  --match: #1E6B4F;
-  --match-tint: #E3F1EA;
-  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* SIGCHI program app, light theme */
+  --sigchi-color-accent-primary: #497CFF;
+  --sigchi-color-accent-primary-hover: #3A6AE8;
+  --sigchi-color-text-on-accent-primary: #FFFFFF;
+  --sigchi-color-container-primary: #E8EDFB;
+  --sigchi-color-text-primary: #2C2D31;
+  --sigchi-color-text-secondary: #737E8A;
+  --sigchi-color-background: #F5F6FA;
+  --sigchi-color-surface-primary: #FFFFFF;
+  --sigchi-color-surface-secondary: #F7F9FC;
+  --sigchi-color-border-light: #E6E8F0;
+  --sigchi-color-error-text: #D32F2F;
+  --sigchi-color-success-surface: #E8F5E9;
+
+  /* Semantic tokens */
+  --paper: var(--sigchi-color-background);
+  --surface: var(--sigchi-color-surface-primary);
+  --chip: var(--sigchi-color-surface-secondary);
+  --ink: var(--sigchi-color-text-primary);
+  --ink-2: #4B4F58;               /* ours: body text one step softer */
+  --muted: var(--sigchi-color-text-secondary);
+  --rule: var(--sigchi-color-border-light);
+  --rule-strong: var(--sigchi-color-border-light);
+  --bar: var(--sigchi-color-surface-primary);     /* app bar, white like the program header */
+  --bar-ink: var(--sigchi-color-text-primary);
+  --then: #5B6275;                /* ours: the 2013 side, secondary links */
+  --now: var(--sigchi-color-accent-primary);      /* the 2026 side, and the accent */
+  --now-hover: var(--sigchi-color-accent-primary-hover);
+  --now-tint: var(--sigchi-color-container-primary);
+  --on-now: var(--sigchi-color-text-on-accent-primary);
+  --match: #1F8F55;               /* ours: "go here", questions, done; darker than SIGCHI's success green for contrast */
+  --match-tint: var(--sigchi-color-success-surface);
+  --danger: var(--sigchi-color-error-text);
+  --raised: 0 4px 14px rgba(41, 43, 60, .25);   /* floating button */
+  --display: "Montserrat", system-ui, sans-serif;
+  --serif: "Montserrat", system-ui, sans-serif;
+  --mono: "Montserrat", system-ui, sans-serif;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #11161C;
-    --surface: #171E26;
-    --ink: #E8ECF0;
-    --ink-2: #C3CBD4;
-    --muted: #8D98A5;
-    --rule: #2A3440;
-    --rule-strong: #E8ECF0;
-    --then: #8FB0EA;
-    --now: #E69A62;
-    --now-tint: #2B2019;
-    --match: #6FCBA3;
-    --match-tint: #16291F;
-    color-scheme: dark;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -41,7 +54,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 17px/1.5 var(--serif);
+  font: 15px/1.55 var(--serif);
   padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
 }
 main, .site-foot { max-width: 680px; margin: 0 auto; }
@@ -244,7 +257,7 @@ details p { font-size: 14.5px; line-height: 1.45; color: var(--ink-2); margin: 6
 .check { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.4; color: var(--ink-2); }
 .check input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--then); flex: none; }
 .btn.wide { width: 100%; padding-block: 13px; font-size: 16px; }
-.btn.danger { background: var(--now); border-color: var(--now); color: #fff; }
+.btn.danger { background: var(--now); border-color: var(--now); color: var(--on-now); }
 
 /* Your details */
 .details { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 16px 0 10px; }
@@ -280,9 +293,9 @@ details p { font-size: 14.5px; line-height: 1.45; color: var(--ink-2); margin: 6
 .fb-fab {
   position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 10;
   font: 600 14px/1 var(--display); text-decoration: none; color: var(--paper); background: var(--now);
-  padding: 12px 16px; border-radius: 999px; box-shadow: 0 4px 14px rgba(22, 32, 43, .22);
+  padding: 12px 16px; border-radius: 999px; box-shadow: var(--raised);
 }
-.fb-fab:hover { filter: brightness(1.08); }
+.fb-fab:hover { background: var(--now-hover); }
 .fb-form { margin-top: 18px; }
 .fb-list { margin-top: 24px; display: grid; gap: 8px; }
 .fb-list .k { color: var(--muted); }
@@ -332,3 +345,99 @@ body.console main { max-width: 1180px; }
 .c-table select { font: 14px/1.2 var(--display); padding: 5px 6px; border: 1.5px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); }
 .c-table > .fine, .c-table > .pulse-empty { padding: 10px 12px; margin: 0; }
 .btn.small { padding: 6px 10px; font-size: 13px; }
+
+
+/* ---------- SIGCHI program theme: components ---------- */
+/* App bar, full width across the side gutter */
+.appbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 -16px; padding: 14px 16px; background: var(--bar); color: var(--bar-ink);
+  border-bottom: 1px solid var(--rule);
+  font: 500 16px/1.5 var(--display);
+}
+.appbar a { color: var(--bar-ink); text-decoration: none; }
+.appbar-title { font-weight: 600; }
+.appbar-who { font-size: 13px; color: var(--muted); text-align: right; }
+.appbar-who a { color: var(--now); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Sentence-case labels in place of spaced capitals */
+.eyebrow, .k, .dim-label, .kind, .n-kind, .pill, .fb-status, .details dt, .c-table th, .n-lbl, .opt {
+  text-transform: none; letter-spacing: 0;
+}
+.eyebrow { border-bottom: 1px solid var(--rule); font-size: 12px; font-weight: 500; }
+.k, .dim-label { font-size: 12px; font-weight: 600; }
+h1 { font-size: clamp(24px, 6vw, 30px); font-weight: 600; letter-spacing: -.01em; line-height: 1.2; }
+h2 { font-size: clamp(22px, 5.5vw, 26px); font-weight: 600; letter-spacing: -.005em; line-height: 1.25; }
+.day h3, .join-title, .erase h3, .privacy h3 { font-weight: 600; }
+.lede { font-size: 15px; line-height: 1.6; }
+.vision { font-style: normal; }
+.ask { font-weight: 600; font-size: 17px; }
+.hook b, .k26 { color: var(--now); }
+
+/* Cards */
+.topics { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.topics li:last-child { border-bottom: 0; }
+.topic-link { padding: 14px 14px; }
+.t-name { font-weight: 600; font-size: 16px; }
+.t-num, .t-count { font-weight: 500; }
+.item, .note-form, .pulse, .join, .fb-item, .c-stats div, .c-table { border-radius: 10px; }
+.hook, .ask-box, .pledge { border-radius: 10px; }
+
+/* Day header like the program's date bar */
+.day h3 {
+  font-size: 16px; padding: 12px 14px; margin: 0 -16px; background: var(--surface);
+  border-bottom: 1px solid var(--rule); color: var(--now);
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+}
+.day h3 span { color: var(--muted); font-weight: 500; }
+
+/* Time label above a white session card with a type stripe */
+.slot { display: block; padding: 14px 0 0; border-bottom: 0; }
+.time { font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 2px 8px; }
+.s-card {
+  position: relative; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+  padding: 12px 14px 14px 18px; overflow: hidden;
+}
+.s-card::before {
+  content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 5px;
+  background: var(--stripe, var(--rule)); border-radius: 0 10px 10px 0;
+}
+.slot.quiet { padding-top: 10px; }
+.slot.quiet .s-card { background: transparent; border: 1px dashed var(--rule); }
+.slot.quiet .s-card::before { display: none; }
+.s-name { font-weight: 500; font-size: 16px; }
+.room { font-size: 12px; font-weight: 500; }
+
+/* Chips with a coloured dot */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--display);
+  padding: 5px 8px; border-radius: 8px; background: var(--chip); color: var(--ink); border: 0;
+}
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dot, var(--muted)); }
+.pill.go { background: var(--now-tint); color: var(--now); --dot: var(--now); }
+.pill.all { --dot: var(--stripe, var(--muted)); }
+.pill.free { border: 0; --dot: transparent; }
+.chip { border: 0; background: var(--chip); border-radius: 8px; font-size: 11.5px; padding: 3px 7px; }
+.kind { color: var(--now); font-weight: 600; font-size: 11.5px; }
+
+/* Controls in the accent */
+.btn { background: var(--now); border-color: var(--now); color: var(--on-now); font-weight: 600; }
+.btn.ghost { background: var(--surface); color: var(--now); border-color: var(--rule); }
+.btn.danger { background: var(--danger); border-color: var(--danger); }
+.seg span { border-width: 1px; }
+.seg input:checked + span { background: var(--now); border-color: var(--now); color: var(--on-now); }
+.c-tabs button[aria-selected="true"] { background: var(--now); border-color: var(--now); color: var(--on-now); }
+.star[aria-pressed="true"], .vote[aria-pressed="true"] { color: var(--now); border-color: var(--now); background: var(--now-tint); }
+.form-err { color: var(--danger); }
+.horizon input[type="range"], .check input { accent-color: var(--now); }
+.horizon.answered output { color: var(--now); }
+.colbar { background: var(--now); }
+.bar i, .anchor-bar i { background: var(--now); }
+.fb-fab { background: var(--now); color: var(--on-now); box-shadow: var(--raised); }
+.fb-bug, .n-criticism { color: var(--danger); }
+.n-comment, .fb-wording, .fb-other { color: var(--now); }
+.who { display: none; }
+.appbar-title { flex: none; white-space: nowrap; }
+.appbar-who { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+a.btn { text-decoration: none; display: inline-block; }

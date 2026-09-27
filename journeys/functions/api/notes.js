@@ -10,9 +10,6 @@ const MAX_HORIZON_NOTE = 300;
 const RATE_WINDOW_MIN = 10;  // minutes
 const PERSON_LIMIT = 8;      // notes per participant per window
 const NETWORK_LIMIT = 200;   // notes per IP per window (venue Wi-Fi shares one IP)
-// Show the name and affiliation given at sign-up next to each note. Set to false
-// to show notes anonymously to other attendees (organisers still see who wrote them).
-const PUBLIC_NAMES = true;
 
 let program = null;  // { items: Set<id>, topics: Set<key> }, cached per isolate
 
@@ -36,13 +33,12 @@ async function overLimit(env, column, value, limit) {
 // Multi-line text: keep line breaks, drop control characters.
 const text = (s, max) => String(s ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim().slice(0, max);
 
-// Names are shown only when the writer chose so and has not erased their record.
-// Contacts are never returned.
+// Other attendees see only the writer's pseudonym, never a name, affiliation or
+// contact. Organizers see who wrote what in the console.
 const PUBLIC_NOTE = `
   n.id, n.created_at, n.item_id, n.kind, n.relation, n.horizon_months, n.horizon_note,
   n.point, n.why, n.evidence, n.body,
-  CASE WHEN n.show_name = 1 AND p.erased_at IS NULL THEN p.name END AS author,
-  CASE WHEN n.show_name = 1 AND p.erased_at IS NULL THEN p.affiliation END AS affiliation`;
+  CASE WHEN p.erased_at IS NULL THEN p.pseudo END AS author`;
 
 export async function onRequestGet({ request, env }) {
   const topic = new URL(request.url).searchParams.get("topic");
@@ -83,7 +79,7 @@ export async function onRequestPost({ request, env }) {
     point: text(body.point, MAX_PART),
     why: text(body.why, MAX_PART) || null,
     evidence: text(body.evidence, MAX_PART) || null,
-    show_name: PUBLIC_NAMES ? 1 : 0,
+    show_name: 1,
   };
   if (!items.has(note.item_id)) return bad("That talk is not in the program.");
   if (!topics.has(note.topic)) return bad("Unknown topic.");

@@ -17,6 +17,8 @@ const NOTES = [
   [1, 268992, "quality", "comment", "happened", 0, "Experts catching agent failures is the bug-bounty model again.", "Their corrections evaporate unless captured.", "The talk's audit and legal examples."],
   [2, 269046, "collab", "question", "ai_changed", 6, "Do hackathon teams still need five people?", null, null],
 ];
+// Feedback comes from admins; these demo admin emails stand in for the real ones.
+const ADMINS = ["super.demo@localhost.test", "admin1.demo@localhost.test", "admin2.demo@localhost.test"];
 const FEEDBACK = [
   [0, "idea", "Let me filter the route by day.", "#platforms", [1, 2]],
   [1, "bug", "The Went to something else link is easy to miss on a phone.", "#quality", [0]],
@@ -31,8 +33,8 @@ export async function onRequestGet({ request, env }) {
   const ids = PEOPLE.map(() => crypto.randomUUID());
   const at = new Date().toISOString();
   const stmts = PEOPLE.map(([contact, name, aff], i) => env.DB.prepare(
-    "INSERT INTO participant (id, name, affiliation, contact, contact_kind, follow_up, country, last_seen_at) VALUES (?1, ?2, ?3, ?4, 'email', ?5, 'US', ?6)"
-  ).bind(ids[i], name, aff, contact, i % 2, at));
+    "INSERT INTO participant (id, name, affiliation, contact, contact_kind, follow_up, country, last_seen_at, pseudo) VALUES (?1, ?2, ?3, ?4, 'email', ?5, 'US', ?6, ?7)"
+  ).bind(ids[i], name, aff, contact, i % 2, at, ["Wise Starling", "Bayesian Octopus", "Stigmergic Termite"][i]));
   for (const [who, item, topic, kind, rel, h, point, why, ev] of NOTES) {
     stmts.push(env.DB.prepare(
       `INSERT INTO notes (item_id, topic, kind, relation, horizon_months, point, why, evidence, body, participant_id, show_name)
@@ -42,9 +44,9 @@ export async function onRequestGet({ request, env }) {
   await env.DB.batch(stmts);
   for (const [who, kind, body, page, voters] of FEEDBACK) {
     const { id } = await env.DB.prepare(
-      "INSERT INTO feedback (participant_id, kind, body, page, viewport) VALUES (?1, ?2, ?3, ?4, '390x844') RETURNING id"
-    ).bind(ids[who], kind, body, page).first();
-    for (const v of voters) await env.DB.prepare("INSERT INTO feedback_vote (feedback_id, participant_id) VALUES (?1, ?2)").bind(id, ids[v]).run();
+      "INSERT INTO feedback (author_email, kind, body, page, viewport) VALUES (?1, ?2, ?3, ?4, '390x844') RETURNING id"
+    ).bind(ADMINS[who], kind, body, page).first();
+    for (const v of voters) await env.DB.prepare("INSERT INTO feedback_vote (feedback_id, voter) VALUES (?1, ?2)").bind(id, ADMINS[v]).run();
   }
   return new Response(null, { status: 302, headers: { Location: "/console?dev" } });
 }
