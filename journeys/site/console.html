@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Console · Crowd Work Journeys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="console">
+<main>
+  <div class="eyebrow"><span>Crowd Work Journeys</span><span>Organizer console</span></div>
+
+  <form id="locked" class="join" novalidate>
+    <h2 class="join-title">Organizer console</h2>
+    <label class="lbl" for="c-token">Admin token</label>
+    <input type="password" id="c-token" autocomplete="current-password" required>
+    <button class="btn wide" type="submit">Open console</button>
+    <p class="form-err" role="alert" id="c-lock-err"></p>
+    <p class="fine">The token stays in this browser tab and is forgotten when you close it.</p>
+  </form>
+
+  <section id="panel" hidden>
+    <div class="c-stats" id="c-stats"></div>
+    <div class="c-bar">
+      <div class="seg c-tabs" role="tablist" aria-label="Tables">
+        <button type="button" role="tab" data-tab="feedback" aria-selected="true">Feedback</button>
+        <button type="button" role="tab" data-tab="notes" aria-selected="false">Notes</button>
+        <button type="button" role="tab" data-tab="participants" aria-selected="false">Participants</button>
+      </div>
+      <div class="c-tools">
+        <input type="search" id="c-filter" placeholder="Filter rows" aria-label="Filter rows">
+        <button class="btn ghost" type="button" id="c-csv">Download CSV</button>
+        <button class="btn ghost" type="button" id="c-refresh">Refresh</button>
+        <button class="btn ghost" type="button" id="c-lock">Lock</button>
+      </div>
+    </div>
+    <p class="toast c-toast" id="toast" role="status"></p>
+    <div class="c-table" id="c-table" tabindex="0" aria-live="polite"></div>
+  </section>
+</main>
+<script src="console.js"></script>
+</body>
+</html>

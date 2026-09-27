@@ -123,3 +123,12 @@ export function composePhone(dial, number) {
   if (!TRUNK_ZERO_KEPT.has(d)) n = n.replace(/^0/, "");
   return normaliseContact("+" + d + n);
 }
+
+// ---------------------------------------------------------------------------
+// Local development bypass. Needs BOTH DEV_BYPASS=1 (set only in .dev.vars,
+// never deployed) AND a localhost address, so it cannot switch on in production.
+// ---------------------------------------------------------------------------
+export function devBypass(request, env) {
+  const host = new URL(request.url).hostname;
+  return env.DEV_BYPASS === "1" && (host === "localhost" || host === "127.0.0.1");
+}

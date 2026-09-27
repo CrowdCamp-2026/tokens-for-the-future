@@ -51,6 +51,10 @@ A **Feedback** button sits on every page once someone is signed in. It opens `#f
 - Export: `curl -H "Authorization: Bearer $ADMIN_TOKEN" "https://<site>/api/admin?table=feedback"`
 - Set a status (shown to everyone): `curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -d '{"feedback_id": 3, "status": "planned"}' https://<site>/api/admin` (open, planned, done, wontfix)
 
+## Organizer console
+
+`/console` shows feedback, notes and participants as tables, behind the `ADMIN_TOKEN` (kept in the browser tab only). Set feedback status from a dropdown, hide or restore notes, filter rows, and download each table as CSV. The page is `noindex`.
+
 ## Preview locally (site and API)
 
 ```sh
@@ -59,13 +63,24 @@ npx wrangler d1 migrations apply crowdwork-journeys --local
 npx wrangler pages dev --port 8792
 ```
 
-Local secrets are in `.dev.vars` (`ADMIN_TOKEN`, `SESSION_SECRET`).
+Local secrets are in `.dev.vars` (`ADMIN_TOKEN`, `SESSION_SECRET`, `DEV_BYPASS`).
+
+### Local bypass for checking pages
+
+With `DEV_BYPASS=1` in `.dev.vars`, and only on `localhost` / `127.0.0.1`:
+
+- `/api/dev/login?next=%23platforms` signs you in as “Demo Visitor” and opens that page (any `#topic`, `#feedback`, `#me`).
+- `/console?dev` opens the console without the token.
+- `/api/dev/seed` adds three demo people with notes and feedback (runs once).
+
+Both conditions are checked on the server (`devBypass()` in `functions/api/_lib.js`), and `.dev.vars` is never deployed, so none of this works on pages.dev.
 
 Tests, with the local server running:
 
 ```sh
-node build/tests/api-smoke.mjs     # 26 API checks: sign-in, notes, erase, feedback, export
+node build/tests/api-smoke.mjs     # 26 API checks (the token check is skipped while DEV_BYPASS is on)
 node build/tests/ui-shots.mjs      # phone-width screenshots into build/tests/shots/
+node build/tests/console-shot.mjs  # console screenshots (needs DEV_BYPASS)
 ```
 
 ## Deploy to Cloudflare Pages (when ready)

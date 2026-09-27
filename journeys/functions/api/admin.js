@@ -1,5 +1,8 @@
+import { devBypass } from "./_lib.js";
+
 // Organizer-only endpoints. Send the header: Authorization: Bearer <ADMIN_TOKEN>
 // GET  /api/admin                      all notes (hidden ones too) as CSV, with who wrote them
+//      add &format=json to any GET for the console at /console.html
 // GET  /api/admin?table=participants   everyone who signed in, as CSV
 // GET  /api/admin?table=feedback       feedback on the app, with +1 counts
 // POST /api/admin {id, hidden}         hide or restore a note
@@ -7,6 +10,7 @@
 const denied = () => new Response("Not allowed.", { status: 403 });
 
 function authorized(request, env) {
+  if (devBypass(request, env)) return true;  // local development only, see _lib.js
   const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   return Boolean(env.ADMIN_TOKEN) && token === env.ADMIN_TOKEN;
 }
@@ -43,6 +47,9 @@ export async function onRequestGet({ request, env }) {
   const q = QUERIES[new URL(request.url).searchParams.get("table") || "notes"];
   if (!q) return new Response("Unknown table.", { status: 400 });
   const { results } = await env.DB.prepare(q.sql).all();
+  if (new URL(request.url).searchParams.get("format") === "json") {
+    return new Response(JSON.stringify({ rows: results }), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+  }
   const cols = results.length ? Object.keys(results[0]) : [];
   const csv = [cols.join(","), ...results.map(r => cols.map(c => csvCell(r[c])).join(","))].join("\r\n");
   return new Response(csv, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename=${q.file}`, "cache-control": "no-store" } });
