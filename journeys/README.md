@@ -6,6 +6,14 @@ Pick one of the 12 research areas from *The Future of Crowd Work* (Kittur et al.
 - `build/` holds the program export, the 13 topics and the topic tags.
 - `print/` holds the flyer (US Letter) and the poster (24×36 in), each with a QR code.
 
+## Framing: this week, we are the crowd
+
+On MTurk's last day, the app casts attendees as the crowd and the CrowdCamp team as their requesters. Each note on a talk is a small task. `site/privacy.html` lists what we owe participants, after the Dynamo guidelines for academic requesters (Salehi et al., *We Are Dynamo*, CHI 2015): who we are, what the task is for, how long it takes, what they get (no pay; a route and the results shown back), no rejected work, and leaving at any time. Every page says the app is an independent CrowdCamp project, not an official HCOMP + CI or SIGCHI app.
+
+## Topic questions and their sources
+
+Each question in `build/topics.json` opens with a premise taken from an item in this week's program, and `cite` lists those program content ids. `build.py` resolves them to title, authors and kind, the topic page shows them under the question, and the flyer and poster carry the short form (“Choi et al.”). When you change a premise, check it against the item's abstract and update `cite`.
+
 ## Change topic matches
 
 Edit `build/tags.json` (program content id → topic keys, strongest first), then:
@@ -39,9 +47,9 @@ People add a comment, question or criticism to any talk, poster or panel. The fo
 
 ### Pseudonyms
 
-Everyone gets a random pseudonym at sign-up, kept across devices: 20 adjectives × 15 nouns = 300 HCOMP + CI themed names (“Calibrated Starling”, “Gold-Standard Oracle”, “Stigmergic Termite”), in `functions/api/_pseudos.js`. After 300, a number is added. Other attendees see only the pseudonym; names and affiliations appear in the console for admins, and contacts for the super admin only. Erasing your details removes the pseudonym too.
+Everyone gets a random pseudonym at sign-up, kept across devices: 20 adjectives × 15 nouns = 300 HCOMP + CI themed names (“Calibrated Cartographer”, “Bayesian Forecaster”, “Stigmergic Weaver”), in `functions/api/_pseudos.js`. The adjectives are ideas from the field; the nouns are roles people take on in collective work. The list leaves out animals and insects and anything that could read as mocking crowd workers (“Turker”, “Redundant”). After 300, a number is added. Notes are shown to signed-in participants only (`GET /api/notes` needs a session), and they see only the pseudonym; names and affiliations appear in the console for admins, and contacts for the super admin only. Erasing your details removes the pseudonym too.
 
-Each note also records how the talk relates to the topic (came true / AI changed it / still open / not related) and, optionally, when the person expects to live in that future: a slider from “already happened” to 5 years, with a short reason. Choosing “It came true” moves the slider to “already happened”. Each topic page summarizes the answers.
+Each note also records how the talk relates to the topic (came true / AI changed it / still open / not related) and, optionally, when the person expects to live in that future: a slider from “already happened” through 5 years to “more than 5 years” and “never”, with a short reason. Stored in `horizon_months`: 0 = already, 6–60 months, 61 = more than 5 years, 999 = never (migration `0005`). Choosing “It came true” moves the slider to “already happened”. Each topic page summarizes the answers.
 
 - Rate limits: 8 notes per person and 200 per network every 10 minutes (venue Wi-Fi shares one IP).
 - Export notes with authors: `curl -H "Authorization: Bearer $MY_TOKEN" https://<site>/api/admin`
@@ -82,12 +90,13 @@ Optional extra layer: put `/console` and `/api/admin*` behind **Cloudflare Acces
 
 ## Theme
 
-The look follows the light content area of the SIGCHI program app (programs.sigchi.org/ci/2026): white header and cards on a pale page, accent `#497CFF`, a coloured stripe per session type. The site, the organizer console and the privacy notice all share `site/styles.css`, and stay light when the device is in dark mode.
+The look follows the light content area of the SIGCHI program app (programs.sigchi.org/ci/2026): white header and cards on a pale page, a coloured stripe per session type. The accent is our own, the rust `#A4541A` of the flyer and poster, and the app bar carries a rust top rule, so the app reads as related to the program without passing for the official app. The site, the organizer console and the privacy notice all share `site/styles.css`, and stay light when the device is in dark mode.
 
 All colours live in the `:root` block at the top of `site/styles.css`, in two layers:
 
 - `--sigchi-*`: SIGCHI's own token names and values, copied from its light theme. Look up a missing one in the program app's stylesheet (for example `--sigchi-color-label-purple-surface`) and add it here under the same name.
-- Semantic tokens (`--paper`, `--surface`, `--ink`, `--muted`, `--rule`, `--now`, `--danger`, …): what the components use. Each points at a `--sigchi-*` token, or holds our own value where SIGCHI has none (`--then`, `--ink-2`, `--match`).
+- `--cc-*`: CrowdCamp's own accent, from the printed flyer and poster.
+- Semantic tokens (`--paper`, `--surface`, `--ink`, `--muted`, `--rule`, `--now`, `--danger`, …): what the components use. Each points at a `--sigchi-*` or `--cc-*` token, or holds our own value (`--then`, `--ink-2`, `--match`).
 
 To retune the look, edit that block; the component rules below it contain no raw colours.
 Screenshots of the program app look purple on some Macs because they are saved in the display's colour profile. Convert to sRGB before sampling a colour, or read the value from SIGCHI's stylesheet.
@@ -115,7 +124,7 @@ Both conditions are checked on the server (`devBypass()` in `functions/api/_lib.
 Tests, with the local server running:
 
 ```sh
-node build/tests/api-smoke.mjs     # 53 API checks: sign-in, pseudonyms, notes, editing, erase, admin-only feedback, roles (needs admin-tokens.local.txt from --dev)
+node build/tests/api-smoke.mjs     # 56 API checks: sign-in, pseudonyms, notes, editing, erase, admin-only feedback, roles (needs admin-tokens.local.txt from --dev)
 node build/tests/ui-shots.mjs      # phone-width screenshots into build/tests/shots/
 node build/tests/console-shot.mjs  # console screenshots (needs DEV_BYPASS)
 node build/tests/notes-shot.mjs    # what attendees see on a talk's notes

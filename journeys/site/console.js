@@ -6,7 +6,7 @@
   const when = iso => iso ? new Date(iso).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
   const RELATION = { happened: "Came true", ai_changed: "AI changed it", still_open: "Still open", unrelated: "Not related" };
   const STATUS = { open: "Open", planned: "Planned", done: "Done", wontfix: "Won’t do" };
-  const horizon = m => m === null || m === undefined ? "" : m === 0 ? "Already" : m < 12 ? `${m} mo` : `${m / 12} yr`;
+  const horizon = m => m === null || m === undefined ? "" : m === 0 ? "Already" : m === 61 ? "5+ yr" : m === 999 ? "Never" : m < 12 ? `${m} mo` : `${m / 12} yr`;
 
   let token = null, tab = "feedback", role = null;
   let rows = { feedback: [], notes: [], participants: [] };
@@ -87,7 +87,7 @@
         `<td><select data-status="${f.id}" aria-label="Status of feedback ${f.id}">${Object.entries(STATUS).map(([v, l]) => `<option value="${v}"${v === f.status ? " selected" : ""}>${l}</option>`).join("")}</select></td>`,
         `<td class="wide">${esc(f.body)}</td>`,
         `<td>${f.page ? `<a href="./${esc(f.page)}" target="_blank" rel="noopener">${esc(f.page === "#" ? "home" : f.page.slice(1))}</a>` : ""}${f.viewport ? `<div class="sub">${esc(f.viewport)}</div>` : ""}</td>`,
-        `<td>${esc(f.name || "Anonymous")}<div class="sub">${esc(f.affiliation || "")}</div></td>`,
+        `<td>${esc(f.author_email || "")}</td>`,
         `<td class="nowrap">${esc(when(f.created_at))}</td>`,
       ],
     },

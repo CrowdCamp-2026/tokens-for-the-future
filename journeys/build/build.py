@@ -51,6 +51,11 @@ for b in blocks:
     b["start"], b["end"] = b["start"].strftime("%H:%M"), b["end"].strftime("%H:%M")
 blocks.sort(key=lambda b: (b["day"], b["start"], b["name"]))
 
+# Each topic question takes its premise from items in the program; `cite` in
+# topics.json lists their ids, resolved here to title, authors and kind.
+for t in TOPICS:
+    t["cite"] = [{k: content(cid)[k] for k in ("id", "title", "kind", "authors")} for cid in t.get("cite", [])]
+
 untagged = [c["title"] for b in blocks for c in b["contents"] if not c["tags"] and c["kind"] != "Event"]
 data = {"generated": dt.date.today().isoformat(), "source": "https://programs.sigchi.org/ci/2026",
         "licence": P.get("cc_licence", ""), "topics": TOPICS, "blocks": blocks}

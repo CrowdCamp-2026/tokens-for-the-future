@@ -34,7 +34,7 @@ export async function onRequestGet({ request, env }) {
   const at = new Date().toISOString();
   const stmts = PEOPLE.map(([contact, name, aff], i) => env.DB.prepare(
     "INSERT INTO participant (id, name, affiliation, contact, contact_kind, follow_up, country, last_seen_at, pseudo) VALUES (?1, ?2, ?3, ?4, 'email', ?5, 'US', ?6, ?7)"
-  ).bind(ids[i], name, aff, contact, i % 2, at, ["Wise Starling", "Bayesian Octopus", "Stigmergic Termite"][i]));
+  ).bind(ids[i], name, aff, contact, i % 2, at, ["Wise Cartographer", "Bayesian Forecaster", "Stigmergic Weaver"][i]));
   for (const [who, item, topic, kind, rel, h, point, why, ev] of NOTES) {
     stmts.push(env.DB.prepare(
       `INSERT INTO notes (item_id, topic, kind, relation, horizon_months, point, why, evidence, body, participant_id, show_name)

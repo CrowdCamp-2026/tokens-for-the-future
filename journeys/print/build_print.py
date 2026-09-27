@@ -28,8 +28,8 @@ def page(size, scale):
 html, body {{ margin: 0; background: #fff; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
 .sheet {{ width: {w}in; height: {h}in; padding: calc(var(--u)*28) calc(var(--u)*38) calc(var(--u)*20); display: flex; flex-direction: column; gap: calc(var(--u)*10); font-family: "Source Serif 4", Georgia, serif; }}
 .eyebrow {{ display:flex; justify-content:space-between; font: 600 calc(var(--u)*8.5)/1 "IBM Plex Mono", monospace; letter-spacing:.12em; text-transform:uppercase; color: var(--muted); border-bottom: calc(var(--u)*1.3) solid var(--ink); padding-bottom: calc(var(--u)*6); }}
-h1 {{ margin: calc(var(--u)*4) 0 0; font: 800 calc(var(--u)*34)/.98 "Archivo", Arial, sans-serif; font-stretch: 112%; letter-spacing: -.015em; text-wrap: balance; }}
-.lede {{ margin: 0; font-size: calc(var(--u)*11); line-height: 1.36; max-width: 36em; }}
+h1 {{ margin: calc(var(--u)*4) 0 0; font: 800 calc(var(--u)*25)/.98 "Archivo", Arial, sans-serif; font-stretch: 112%; letter-spacing: -.015em; text-wrap: balance; }}
+.lede {{ margin: 0; font-size: calc(var(--u)*10.5); line-height: 1.34; }}
 .lede em {{ color: var(--then); }}
 .hook {{ background: var(--tint); border-radius: calc(var(--u)*5); padding: calc(var(--u)*7) calc(var(--u)*10); font: 500 calc(var(--u)*10.5)/1.35 "Archivo", Arial, sans-serif; }}
 .hook b {{ color: var(--now); }}
@@ -37,10 +37,10 @@ h1 {{ margin: calc(var(--u)*4) 0 0; font: 800 calc(var(--u)*34)/.98 "Archivo", A
 .dim {{ font: 600 calc(var(--u)*7.5)/1 "IBM Plex Mono", monospace; letter-spacing:.12em; text-transform: uppercase; color: var(--then); margin: calc(var(--u)*6) 0 calc(var(--u)*5); break-after: avoid; }}
 .dim:first-child {{ margin-top: 0; }}
 .dim.new {{ color: var(--now); }}
-.q {{ display: grid; grid-template-columns: calc(var(--u)*18) 1fr; gap: calc(var(--u)*4); padding: calc(var(--u)*4) 0; border-top: calc(var(--u)*.6) solid var(--rule); break-inside: avoid; }}
+.q {{ display: grid; grid-template-columns: calc(var(--u)*18) 1fr; gap: calc(var(--u)*4); padding: calc(var(--u)*3.5) 0; border-top: calc(var(--u)*.6) solid var(--rule); break-inside: avoid; }}
 .n {{ font: 600 calc(var(--u)*8.5)/1.5 "IBM Plex Mono", monospace; color: var(--muted); }}
 .area {{ font: 600 calc(var(--u)*7.5)/1.2 "IBM Plex Mono", monospace; letter-spacing:.06em; text-transform: uppercase; color: var(--muted); margin-bottom: calc(var(--u)*2); }}
-.qq {{ font: 600 calc(var(--u)*10.5)/1.28 "Archivo", Arial, sans-serif; }}
+.qq {{ font: 600 calc(var(--u)*9)/1.24 "Archivo", Arial, sans-serif; }}
 .cta {{ display: grid; grid-template-columns: auto 1fr; gap: calc(var(--u)*16); align-items: center; border-top: calc(var(--u)*1.3) solid var(--ink); padding-top: calc(var(--u)*10); }}
 #qr svg {{ width: calc(var(--u)*104); height: calc(var(--u)*104); display: block; }}
 .cta h2 {{ margin: 0; font: 800 calc(var(--u)*20)/1.02 "Archivo", Arial, sans-serif; font-stretch: 110%; }}
@@ -50,14 +50,14 @@ h1 {{ margin: calc(var(--u)*4) 0 0; font: 800 calc(var(--u)*34)/.98 "Archivo", A
 </style></head><body><section class="sheet">
 <div class="eyebrow"><span>CrowdCamp 2026 · HCOMP + CI · Alexandria, VA</span><span>Sep 28–30</span></div>
 <h1>13 questions for the future of crowd work</h1>
-<p class="lede">In 2013, a paper born at CrowdCamp asked: <em>“Can we foresee a future crowd workplace in which we would want our children to participate?”</em> It mapped twelve research areas. AI has since changed most of them. Here is the question we would ask about each one today, plus a thirteenth the paper left out.</p>
-<div class="hook"><b>Why now:</b> Amazon Mechanical Turk shuts down on September 30, 2026, the last day of this conference.</div>
+<p class="lede">In 2013, a paper born at CrowdCamp asked: <em>“Can we foresee a future crowd workplace in which we would want our children to participate?”</em> It mapped twelve research areas. For each one, here is the question we would ask today, with its premise taken from a paper in this week’s program, plus a thirteenth the paper left out.</p>
+<div class="hook"><b>Why now:</b> Amazon Mechanical Turk shuts down on September 30, 2026, the last day of this conference. For three days, the people who study crowd work do it: you are the crowd.</div>
 <div class="qs">{questions()}</div>
 <div class="cta"><div id="qr" aria-label="QR code to {e(SITE_URL)}"></div><div>
 <h2>Pick one. Get your route.</h2>
-<ol class="steps"><li>Scan the code and choose the question you care about.</li><li>Get the sessions, talks and posters that match it, Monday to Wednesday.</li><li>Ask your question in Q&amp;A, then leave a comment, question or criticism on the talk, and say when you think you will live in that future.</li></ol>
+<ol class="steps"><li>Scan the code and choose the question you care about.</li><li>Get the sessions, talks and posters that match it, Monday to Wednesday.</li><li>Ask your question in Q&amp;A. Then do the task: a comment, question or criticism on the talk, and when you think you will live in that future.</li></ol>
 <div class="url">{e(shown)}</div></div></div>
-<div class="foot">After Kittur et al., The Future of Crowd Work, CSCW 2013 · Schedule data: programs.sigchi.org/ci/2026</div>
+<div class="foot">After Kittur et al., The Future of Crowd Work, CSCW 2013 · Premises cite papers in the HCOMP + CI 2026 program; full references in the app · Schedule data: programs.sigchi.org/ci/2026 · An independent CrowdCamp 2026 project, not an official HCOMP + CI or SIGCHI app</div>
 </section>
 <script>const q = qrcode(0, "M"); q.addData({json.dumps(SITE_URL)}); q.make(); document.getElementById("qr").innerHTML = q.createSvgTag({{ scalable: true, margin: 0 }});</script>
 </body></html>'''

@@ -1,10 +1,11 @@
-// GET  /api/notes?topic=<key>   public notes for one topic, plus a summary
+// GET  /api/notes?topic=<key>   notes for one topic, plus a summary (signed-in participants only)
 // POST /api/notes               add a note to a program item (signed-in participants only)
 import { json, bad, readJson, clean, requireSecret, keyedHash, clientIp, currentParticipant } from "./_lib.js";
 
 const KINDS = ["comment", "question", "criticism"];
 const RELATIONS = ["happened", "ai_changed", "still_open", "unrelated"];
-const HORIZONS = [0, 6, 12, 18, 24, 36, 48, 60];  // months; 0 = "already happened"
+// Months, in order. 0 = "already happened"; 61 = "more than 5 years"; 999 = "never".
+const HORIZONS = [0, 6, 12, 18, 24, 36, 48, 60, 61, 999];
 const MAX_PART = 1500;
 const MAX_HORIZON_NOTE = 300;
 const RATE_WINDOW_MIN = 10;  // minutes
@@ -33,14 +34,15 @@ async function overLimit(env, column, value, limit) {
 // Multi-line text: keep line breaks, drop control characters.
 const text = (s, max) => String(s ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim().slice(0, max);
 
-// Other attendees see only the writer's pseudonym, never a name, affiliation or
-// contact. Organizers see who wrote what in the console.
+// Only signed-in participants read notes, and they see the writer's pseudonym
+// alone: no name, affiliation or contact. Organizers see who wrote what in the console.
 const PUBLIC_NOTE = `
   n.id, n.created_at, n.item_id, n.kind, n.relation, n.horizon_months, n.horizon_note,
   n.point, n.why, n.evidence, n.body,
   CASE WHEN p.erased_at IS NULL THEN p.pseudo END AS author`;
 
 export async function onRequestGet({ request, env }) {
+  if (!await currentParticipant(request, env)) return bad("Sign in to read notes. They are for participants only.", 401);
   const topic = new URL(request.url).searchParams.get("topic");
   const { topics } = await loadProgram(env, request);
   if (!topics.has(topic)) return bad("Unknown topic.");
@@ -85,7 +87,7 @@ export async function onRequestPost({ request, env }) {
   if (!topics.has(note.topic)) return bad("Unknown topic.");
   if (!KINDS.includes(note.kind)) return bad("Choose comment, question or criticism.");
   if (!RELATIONS.includes(note.relation)) return bad("Say how the talk relates to the topic.");
-  if (note.horizon_months !== null && !HORIZONS.includes(note.horizon_months)) return bad("Pick a time between “already happened” and 5 years.");
+  if (note.horizon_months !== null && !HORIZONS.includes(note.horizon_months)) return bad("Pick a time between “already happened” and “never”.");
   if (note.point.length < 3) return bad("Write your main point in a few words.");
   const joined = [note.point, note.why, note.evidence].filter(Boolean).join("\n\n");
 

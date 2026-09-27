@@ -7,10 +7,16 @@
   const STORE = "cwj-stars";
   const KIND = { comment: "Comment", question: "Question", criticism: "Criticism" };
   const RELATION = { happened: "It came true", ai_changed: "AI changed it", still_open: "Still open", unrelated: "Not related" };
-  const HORIZONS = [0, 6, 12, 18, 24, 36, 48, 60];  // months; 0 = already happened
-  const TICKS = ["Already", "", "1 yr", "", "2 yr", "", "", "5 yr"];          // slider labels, sparse to fit a phone
-  const SHORT = ["now", "6m", "1y", "18m", "2y", "3y", "4y", "5y"];         // summary chart labels
-  const horizonLabel = m => m === 0 ? "Already happened" : m < 12 ? `${m} months` : m === 12 ? "1 year" : `${m / 12} years`;
+  // Months, in order; 0 = already happened, 61 = more than 5 years, 999 = never (as in notes.js).
+  const LATER = 61, NEVER = 999;
+  const HORIZONS = [0, 6, 12, 18, 24, 36, 48, 60, LATER, NEVER];
+  const TICKS = ["Already", "", "1 yr", "", "2 yr", "", "", "5 yr", "", "Never"];  // slider labels, sparse to fit a phone
+  const SHORT = ["now", "6m", "1y", "18m", "2y", "3y", "4y", "5y", "5y+", "never"];  // summary chart labels
+  const horizonLabel = m => m === 0 ? "Already happened" : m === LATER ? "More than 5 years" : m === NEVER ? "Never"
+    : m < 12 ? `${m} months` : m === 12 ? "1 year" : `${m / 12} years`;
+  // How a note's timing reads under it, and in the slider's live answer.
+  const livesIt = m => m === 0 ? "Already lives it" : m === NEVER ? "Thinks it never comes" : m === LATER ? "Lives it in more than 5 years" : `Lives it in ${horizonLabel(m)}`;
+  const sliderSays = m => m === 0 ? "Already happened" : m === NEVER ? "Never" : m === LATER ? "In more than 5 years" : `In about ${horizonLabel(m)}`;
 
   // The note is written in three parts, each with a sentence opener, and a live
   // word count under it (partitioned text fields + word-count anchor, after
@@ -49,6 +55,13 @@
     return out;
   }
 
+  // Where a question's premise comes from: items in this program (cite in topics.json).
+  function citeHTML(cite) {
+    if (!cite?.length) return "";
+    const one = c => `<i>${esc(c.title)}</i> (${esc(authors(c.authors))}; ${esc(c.kind.toLowerCase())})`;
+    return `<p class="cite">Premise from ${cite.map(one).join(" and ")}, in this week’s program.</p>`;
+  }
+
   function slotsByDay() {
     const days = {};
     for (const b of DATA.blocks) ((days[b.day] ||= {})[b.start] ||= []).push(b);
@@ -78,10 +91,11 @@
     fab.hidden = true;
     document.title = "Crowd Work Journeys";
     app.innerHTML = `
-      <div class="eyebrow"><span>HCOMP + CI 2026 · Alexandria, VA</span><span>Sep 28–30</span></div>
+      <div class="eyebrow"><span>CrowdCamp 2026 · at HCOMP + CI, Alexandria, VA</span><span>Sep 28–30</span></div>
       <h1>Crowd Work Journeys</h1>
-      <p class="lede">In 2013, a paper born at CrowdCamp asked: <em>“Can we foresee a future crowd workplace in which we would want our children to participate?”</em> Thirteen years on, pick the question you care about, follow your route through the conference, and tell us what the talks say about it.</p>
-      <p class="hook"><b>Why now:</b> Amazon Mechanical Turk shuts down on September 30, 2026, the last day of this conference.</p>
+      <p class="unofficial">An independent project by CrowdCamp 2026 participants. It is not an official app of HCOMP + CI 2026 or SIGCHI.</p>
+      <p class="lede">In 2013, a paper born at CrowdCamp asked: <em>“Can we foresee a future crowd workplace in which we would want our children to participate?”</em> This week, we find out from the inside. You are the crowd: pick a question, follow your route through the conference, and do one small task at each talk you attend, a note on what it says about your question.</p>
+      <p class="hook"><b>Why now:</b> Amazon Mechanical Turk shuts down on September 30, 2026, the last day of this conference. For three days, the people who study crowd work do it.</p>
       <form class="join" id="join-form" novalidate>
         <h2 class="join-title">First, who are you?</h2>
         <label class="lbl" for="j-name">Name</label>
@@ -107,7 +121,7 @@
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
         <button class="btn wide" type="submit">Continue</button>
         <p class="form-err" role="alert">${esc(msg)}</p>
-        <p class="fine">By continuing you accept the <a href="privacy.html">privacy notice</a>. Other attendees see only a pseudonym, which you get next. Your name, affiliation and contact are seen by the organizing team only.</p>
+        <p class="fine">We are your requesters this week. By continuing you accept the <a href="privacy.html">privacy notice</a>, which says what we owe you. Other participants see only a worker name, which you get next. Your name, affiliation and contact are seen by the organizing team only.</p>
       </form>`;
     fillDial(document.getElementById("j-dial"));
     document.getElementById("j-name").focus();
@@ -146,7 +160,7 @@
       <div class="eyebrow"><span>Your details</span><span></span></div>
       ${saved ? `<p class="hook" role="status">${esc(saved)}</p>` : ""}
       <dl class="details">
-        <dt>Pseudonym</dt><dd><b>${esc(ME.pseudo || "")}</b><div class="fine">What other attendees see on your notes.</div></dd>
+        <dt>Pseudonym</dt><dd><b>${esc(ME.pseudo || "")}</b><div class="fine">Your worker name: what other participants see on your notes.</div></dd>
         <dt>Name</dt><dd>${esc(ME.name)}</dd>
         <dt>Affiliation</dt><dd>${esc(ME.affiliation)}</dd>
         <dt>${ME.contact_kind === "phone" ? "Phone" : "Email"}</dt><dd>${esc(ME.contact)}</dd>
@@ -342,8 +356,8 @@
       ${whoHTML()}
       <div class="eyebrow"><span>HCOMP + CI 2026 · Alexandria, VA</span><span>Sep 28–30</span></div>
       <h1>Crowd Work Journeys</h1>
-      ${JUST_JOINED ? `<p class="hook">Welcome, <b>${esc(ME.pseudo)}</b>. That is the name other attendees see on your notes.</p>` : ""}
-      <p class="lede">The 2013 paper named twelve research areas; we added a thirteenth. Pick the one you care about. We’ll map your route through this week’s sessions and posters, and you can leave notes on the talks you attend.</p>
+      ${JUST_JOINED ? `<p class="hook">Welcome, <b>${esc(ME.pseudo)}</b>. That is your worker name this week: other participants see it on your notes, and nothing else about you.</p>` : ""}
+      <p class="lede">The 2013 paper named twelve research areas; we added a thirteenth. Pick the one you care about. We’ll map your route through this week’s sessions and posters. Your task at each talk: a short note on what it says about your question. Every topic page shows back what the crowd found.</p>
       ${dims.map(d => `
         <section class="dim${d.name === "New in 2026" ? " new" : ""}">
           <div class="dim-label">${esc(d.name)}</div>
@@ -384,7 +398,7 @@
     return `<li class="note">
       <div class="n-head"><span class="n-kind n-${esc(n.kind)}">${esc(KIND[n.kind])}</span>
         <span class="n-rel">${esc(RELATION[n.relation])}</span>
-        ${n.horizon_months !== null && n.horizon_months !== undefined ? `<span class="n-rel">${n.horizon_months === 0 ? "Already lives it" : `Lives it in ${esc(horizonLabel(n.horizon_months))}`}</span>` : ""}</div>
+        ${n.horizon_months !== null && n.horizon_months !== undefined ? `<span class="n-rel">${esc(livesIt(n.horizon_months))}</span>` : ""}</div>
       <p class="n-body n-point">${esc(n.point || n.body)}</p>
       ${n.why ? `<p class="n-body"><span class="n-lbl">${esc(parts[1][0])}</span> ${esc(n.why)}</p>` : ""}
       ${n.evidence ? `<p class="n-body"><span class="n-lbl">${esc(parts[2][0])}</span> ${esc(n.evidence)}</p>` : ""}
@@ -431,7 +445,8 @@
         <input type="text" id="nf-hnote" name="horizon_note" maxlength="300" placeholder="What has to happen first?">
       </fieldset>
       <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <p class="fine">Posted as <b>${esc(ME?.pseudo || "")}</b>. Notes are public on this site under your pseudonym, and the CrowdCamp team may quote them without names in a research write-up.</p>
+      <p class="courtesy">Speakers and fellow participants read these notes. Be courteous and constructive: engage with the ideas, and say what would make the work stronger.</p>
+      <p class="fine">Posted as <b>${esc(ME?.pseudo || "")}</b>. Only signed-in participants see notes, under your worker name. The CrowdCamp team may quote them without names in a research write-up.</p>
       <div class="form-actions">
         <button class="btn" type="submit">Post note</button>
         <button class="btn ghost" type="button" data-cancel>Cancel</button>
@@ -483,7 +498,7 @@
     slider.value = index;
     slider.dataset.touched = how;  // "1" moved by hand, "auto" set from "It came true"
     fs.classList.add("answered");
-    out.textContent = HORIZONS[index] === 0 ? "Already happened" : `In about ${horizonLabel(HORIZONS[index])}`;
+    out.textContent = sliderSays(HORIZONS[index]);
   }
 
   async function submitNote(form) {
@@ -536,13 +551,13 @@
     if (!el) return;
     if (!NOTES.ok) { el.innerHTML = `<p class="pulse-off">Notes from attendees appear here on the live site.</p>`; return; }
     const s = NOTES.summary;
-    if (!s.notes) { el.innerHTML = `<div class="k">What attendees say</div><p class="pulse-empty">No notes on this topic yet. Attend a talk below and add the first one.</p>`; return; }
+    if (!s.notes) { el.innerHTML = `<div class="k">What the crowd found</div><p class="pulse-empty">No notes on this topic yet. Attend a talk below and add the first one.</p>`; return; }
     const relMax = Math.max(1, ...Object.values(s.relation));
     const hMax = Math.max(1, ...HORIZONS.map(h => s.horizon[h] || 0));
     const answered = HORIZONS.reduce((n, h) => n + (s.horizon[h] || 0), 0);
     const med = median(s.horizon);
     el.innerHTML = `
-      <div class="k">What attendees say · ${s.notes} ${s.notes === 1 ? "note" : "notes"}</div>
+      <div class="k">What the crowd found ·${s.notes} ${s.notes === 1 ? "note" : "notes"}</div>
       <div class="bars">${Object.entries(RELATION).map(([k, l]) => `
         <div class="bar-row"><span class="bar-l">${esc(l)}</span><span class="bar"><i style="--w:${(s.relation[k] / relMax) * 100}%"></i></span><span class="bar-n">${s.relation[k]}</span></div>`).join("")}
       </div>
@@ -659,6 +674,7 @@
       <div class="then-now">
         <div><div class="k k13">2013 vision</div><p class="vision">${esc(t.vision)}</p></div>
         <div class="ask-box"><div class="k k26">Your question this week</div><p class="ask">${esc(t.question)}</p>
+          ${citeHTML(t.cite)}
           <p class="ask-hint">Ask it in Q&amp;A, at a poster or over coffee. Then add a note to the talk.</p></div>
       </div>
       <section class="pulse" id="pulse" aria-live="polite"><p class="pulse-off">Loading notes…</p></section>

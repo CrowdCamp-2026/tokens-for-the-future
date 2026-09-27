@@ -1,17 +1,20 @@
-// Pseudonyms for HCOMP + CI 2026 attendees: 20 adjectives × 15 nouns = 300,
-// all drawn from human computation and collective intelligence.
-// Other attendees only ever see these; real names stay with the organizers.
+// Pseudonyms for HCOMP + CI 2026 participants: 20 adjectives × 15 nouns = 300.
+// The adjectives are ideas from human computation and collective intelligence;
+// the nouns are roles people take on in collective work, crowd work included,
+// since this week the participants are the crowd. No animals or insects, and
+// no word that could read as mocking crowd workers ("Turker", "Redundant").
+// Other participants only ever see these; real names stay with the organizers.
 export const ADJECTIVES = [
-  "Calibrated", "Crowdsourced", "Emergent", "Gold-Standard", "Redundant",
-  "Aggregated", "Distributed", "Bayesian", "Peer-Reviewed", "Stigmergic",
-  "Deliberative", "Complementary", "Majority-Vote", "Wise", "Annotated",
-  "Swarming", "Decentralized", "Interrater", "Human-in-the-Loop", "Asynchronous",
+  "Calibrated", "Deliberative", "Bayesian", "Emergent", "Distributed",
+  "Decentralized", "Asynchronous", "Complementary", "Collective", "Participatory",
+  "Federated", "Reciprocal", "Iterative", "Open-Source", "Crowd-Powered",
+  "Curious", "Independent", "Wise", "Stigmergic", "Peer-Reviewed",
 ];
 
 export const NOUNS = [
-  "Starling", "Oracle", "Turker", "Ant", "Bee",
-  "Annotator", "Juror", "Quorum", "Polymath", "Hive",
-  "Labeler", "Delphi", "Termite", "Octopus", "Flock",
+  "Annotator", "Rater", "Reviewer", "Juror", "Forecaster",
+  "Delegate", "Curator", "Moderator", "Steward", "Scout",
+  "Mentor", "Cartographer", "Weaver", "Navigator", "Archivist",
 ];
 
 export const PSEUDOS = ADJECTIVES.flatMap(a => NOUNS.map(n => `${a} ${n}`));

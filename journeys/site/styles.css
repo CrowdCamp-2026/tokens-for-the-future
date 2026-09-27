@@ -2,8 +2,10 @@
    The --sigchi-* tokens copy the light theme of the SIGCHI program app
    (programs.sigchi.org/ci/2026), with its own names and values, as served on
    27 Sep 2026: white header and cards on a pale page, accent #497CFF, a
-   coloured stripe per session type. Components use only the semantic tokens
-   below them, so retuning the look means editing this block alone.
+   coloured stripe per session type. The accent is our own (--cc-*), the rust
+   of the CrowdCamp flyer and poster, so the app reads as related to the
+   program without passing for the official app. Components use only the
+   semantic tokens below them, so retuning the look means editing this block alone.
    Light only: we follow the program's light content area, and do not switch
    to a dark variant when the device is in dark mode. */
 :root {
@@ -21,6 +23,11 @@
   --sigchi-color-error-text: #D32F2F;
   --sigchi-color-success-surface: #E8F5E9;
 
+  /* CrowdCamp 2026, from the printed flyer and poster */
+  --cc-accent: #A4541A;           /* white text on it: 5.4:1 */
+  --cc-accent-hover: #8A4514;
+  --cc-accent-surface: #F8EDE4;
+
   /* Semantic tokens */
   --paper: var(--sigchi-color-background);
   --surface: var(--sigchi-color-surface-primary);
@@ -33,9 +40,9 @@
   --bar: var(--sigchi-color-surface-primary);     /* app bar, white like the program header */
   --bar-ink: var(--sigchi-color-text-primary);
   --then: #5B6275;                /* ours: the 2013 side, secondary links */
-  --now: var(--sigchi-color-accent-primary);      /* the 2026 side, and the accent */
-  --now-hover: var(--sigchi-color-accent-primary-hover);
-  --now-tint: var(--sigchi-color-container-primary);
+  --now: var(--cc-accent);                        /* the 2026 side, and the accent */
+  --now-hover: var(--cc-accent-hover);
+  --now-tint: var(--cc-accent-surface);
   --on-now: var(--sigchi-color-text-on-accent-primary);
   --match: #1F8F55;               /* ours: "go here", questions, done; darker than SIGCHI's success green for contrast */
   --match-tint: var(--sigchi-color-success-surface);
@@ -78,6 +85,7 @@ h2 { font-size: clamp(28px, 7vw, 40px); font-weight: 800; font-stretch: 110%; li
   font: 500 15px/1.4 var(--display); color: var(--ink);
 }
 .hook b { color: var(--now); }
+.unofficial { margin: 12px 0 0; padding: 7px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--chip); font-size: 13px; line-height: 1.4; color: var(--ink-2); }
 
 /* Topic picker */
 .dim { margin-top: 28px; }
@@ -105,6 +113,7 @@ h2 { font-size: clamp(28px, 7vw, 40px); font-weight: 800; font-stretch: 110%; li
 .ask { margin: 0; font: 600 19px/1.35 var(--display); }
 .ask-box { background: var(--now-tint); border-radius: 8px; padding: 12px 14px; }
 .ask-hint { margin: 6px 0 0; font-size: 14px; color: var(--ink-2); }
+.cite { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
 .stats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; font: 500 13px/1.3 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .stats b { color: var(--ink); font-weight: 600; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -205,7 +214,7 @@ details p { font-size: 14.5px; line-height: 1.45; color: var(--ink-2); margin: 6
 .horizon { display: grid; gap: 6px; }
 .horizon input[type="range"] { width: 100%; accent-color: var(--now); margin: 4px 0 0; opacity: .55; }
 .horizon.answered input[type="range"] { opacity: 1; }
-.ticks { display: grid; grid-template-columns: repeat(8, 1fr); font: 500 10.5px/1 var(--mono); color: var(--muted); text-align: center; }
+.ticks { display: grid; grid-template-columns: repeat(10, 1fr); font: 500 10.5px/1 var(--mono); color: var(--muted); text-align: center; }
 .ticks span:first-child { text-align: left; white-space: nowrap; overflow: visible; }
 .ticks span { white-space: nowrap; }
 .ticks span:last-child { text-align: right; }
@@ -213,6 +222,7 @@ details p { font-size: 14.5px; line-height: 1.45; color: var(--ink-2); margin: 6
 .horizon.answered output { color: var(--now); }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .fine { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.courtesy { margin: 14px 0 8px; padding: 2px 0 2px 10px; border-left: 3px solid var(--match); font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
 .form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn[disabled] { opacity: .6; cursor: progress; }
 .form-err { margin: 0; font: 500 14px/1.35 var(--display); color: var(--now); }
@@ -233,7 +243,7 @@ details p { font-size: 14.5px; line-height: 1.45; color: var(--ink-2); margin: 6
 .bar i { display: block; height: 100%; width: var(--w); background: var(--then); border-radius: 4px; }
 .bar-n { font: 500 12px/1 var(--mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .hz-k { margin-top: 4px; }
-.hist { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; height: 92px; align-items: end; margin-top: 6px; }
+.hist { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; height: 92px; align-items: end; margin-top: 6px; }
 .col { display: grid; grid-template-rows: 1fr auto auto; height: 100%; gap: 3px; text-align: center; }
 .colbar { align-self: end; height: var(--h); min-height: 2px; background: var(--now); border-radius: 3px 3px 0 0; }
 .col-n { font: 600 11px/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
@@ -352,6 +362,7 @@ body.console main { max-width: 1180px; }
 .appbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin: 0 -16px; padding: 14px 16px; background: var(--bar); color: var(--bar-ink);
+  border-top: 3px solid var(--now);  /* our mark: the program app's header has none */
   border-bottom: 1px solid var(--rule);
   font: 500 16px/1.5 var(--display);
 }
