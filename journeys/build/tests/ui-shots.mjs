@@ -1,6 +1,6 @@
 // Phone-width screenshots of the splash page and the note form, via Chrome's DevTools protocol.
 import { spawn } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync } from "node:fs";
 const BASE = process.argv[2] || "http://127.0.0.1:8792";
 const OUT = new URL("./shots/", import.meta.url).pathname;
 const chrome = spawn("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -17,7 +17,10 @@ const shot = async name => { const s = await send("Page.captureScreenshot", { fo
 await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 1300, deviceScaleFactor: 2, mobile: true });
 await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
 await send("Network.enable"); await send("Network.clearBrowserCookies");
-await send("Page.navigate", { url: BASE + "/" }); await sleep(3000);
+// The participants-only gate: open the app through the dev link when one is set up.
+const devLink = new URL("../../participant-link.dev.txt", import.meta.url).pathname;
+const key = existsSync(devLink) ? readFileSync(devLink, "utf8").trim().split("k=")[1] : "";
+await send("Page.navigate", { url: BASE + (key ? `/?k=${key}` : "/") }); await sleep(3000);
 await shot("1-splash.png");
 await ev(`document.getElementById('j-name').value='Ada Lovelace'; document.getElementById('j-aff').value='University of Geneva'; document.getElementById('j-email').value='ada.ui@example.org'; document.getElementById('join-form').requestSubmit()`);
 await sleep(1500);

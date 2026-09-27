@@ -29,6 +29,25 @@ A splash page asks for **name, affiliation, and an email or phone number** (with
 - “Your details” lets people sign out, or erase themselves by typing their name: name, affiliation and contact are deleted; notes stay as “Anonymous”.
 - `site/privacy.html` describes exactly this. **Before launch, fill in the organizer contact and confirm the retention date (31 March 2027).**
 
+## Participants only
+
+The whole app (pages, `data.json`, the API) is closed to anyone who has not opened the **participant link**, which is shared with its QR code in the conference Slack. The link carries a key (`/?k=…`). Opening it sets a signed, HttpOnly pass cookie for five days and redirects to the same page without the key, so the key does not stay in the address bar or in links people copy from the app. Without a pass, a participant session or an admin token, every request gets a short "for conference participants" page (or a JSON 403 from the API).
+
+- Always open: `privacy.html`, `styles.css`, `/console` (its API checks admin tokens) and the localhost-only `/api/dev/*`.
+- The server holds only `PARTICIPANT_KEY_HASH`, the SHA-256 of the key. Without it the app stays locked on a real domain, and open on localhost.
+- Generate the key, link and QR code (default origin `https://crowdwork-journeys.pages.dev`):
+
+```sh
+node build/make-participant-link.mjs https://<your-project>.pages.dev
+npx wrangler pages secret put PARTICIPANT_KEY_HASH --project-name crowdwork-journeys < participant-key.secret.txt
+# post participant-qr.local.png and the message in participant-link.local.txt to Slack, then delete participant-key.secret.txt
+```
+
+- `participant-qr.local.svg` is the bare code, for slides. All these files are git-ignored: they hold the key.
+- **Rotate** if the link leaks outside the conference: run the script again, upload the new hash, post the new link. Old links and passes stop working; people already signed in stay in. To sign those out too, also set a new `SESSION_SECRET` (everyone signs in again with the same email or phone and keeps their pseudonym and notes).
+- The flyer and poster QR codes point to the bare site, which shows the locked page. To print ones that open the app, pass the link: `python3 print/build_print.py "https://…/?k=…"` (the key then shows on paper, so keep those PDFs out of git).
+- Locally, `node build/make-participant-link.mjs --dev` writes the hash to `.dev.vars` and the link to `participant-link.dev.txt`, which the tests use.
+
 ## Notes from attendees
 
 People add a comment, question or criticism to any talk, poster or panel. The form follows *Nudge for Deliberativeness* (Menon, Zhang & Perrault, CHI 2020; PDF in `build/refs/`):
@@ -100,7 +119,7 @@ npx wrangler d1 migrations apply crowdwork-journeys --local
 npx wrangler pages dev --port 8792
 ```
 
-Local secrets are in `.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`).
+Local secrets are in `.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`, optionally `PARTICIPANT_KEY_HASH`).
 
 ### Local bypass for checking pages
 
@@ -115,7 +134,7 @@ Both conditions are checked on the server (`devBypass()` in `functions/api/_lib.
 Tests, with the local server running:
 
 ```sh
-node build/tests/api-smoke.mjs     # 44 API checks: sign-in, pseudonyms, notes, erase, admin-only feedback, roles (needs admin-tokens.local.txt from --dev)
+node build/tests/api-smoke.mjs     # API checks: participants-only gate, sign-in, pseudonyms, notes, erase, admin-only feedback, roles (needs admin-tokens.local.txt from --dev)
 node build/tests/ui-shots.mjs      # phone-width screenshots into build/tests/shots/
 node build/tests/console-shot.mjs  # console screenshots (needs DEV_BYPASS)
 node build/tests/notes-shot.mjs    # what attendees see on a talk's notes
@@ -131,6 +150,8 @@ npx wrangler pages project create crowdwork-journeys --production-branch main
 node build/make-admin-tokens.mjs super:<you> admin:<a> admin:<b>
 npx wrangler pages secret put ADMIN_TOKENS --project-name crowdwork-journeys < admin-tokens.secret.json
 npx wrangler pages secret put SESSION_SECRET --project-name crowdwork-journeys   # a long random string
+node build/make-participant-link.mjs https://<your-project>.pages.dev
+npx wrangler pages secret put PARTICIPANT_KEY_HASH --project-name crowdwork-journeys < participant-key.secret.txt
 npx wrangler pages deploy
 ```
 

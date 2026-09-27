@@ -47,7 +47,7 @@ export async function signSession(payload, secret) {
   return `${data}.${await hmac(secret, data)}`;
 }
 
-async function verifySession(value, secret) {
+export async function verifySession(value, secret) {
   if (!value || !value.includes(".")) return null;
   const [data, sig] = value.split(".");
   if (sig !== await hmac(secret, data)) return null;
@@ -57,7 +57,7 @@ async function verifySession(value, secret) {
   } catch { return null; }
 }
 
-function readCookie(request, name = COOKIE) {
+export function readCookie(request, name = COOKIE) {
   for (const part of (request.headers.get("Cookie") || "").split(";")) {
     const [k, ...rest] = part.trim().split("=");
     if (k === name) return rest.join("=");
@@ -74,6 +74,11 @@ export const clearCookieHeader = request => `${COOKIE}=; Path=/; HttpOnly; SameS
 const ADMIN_COOKIE = "cwj_admin";
 export const adminCookieHeader = (request, value) => `${ADMIN_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
 export const clearAdminCookieHeader = request => `${ADMIN_COOKIE}=; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=0`;
+
+// The participant pass, set when someone opens the conference link (?k=…).
+// See functions/_middleware.js.
+export const PASS_COOKIE = "cwj_pass";
+export const passCookieHeader = (request, value) => `${PASS_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
 
 // The signed-in participant, or null. An erased participant is signed out.
 export async function currentParticipant(request, env) {
@@ -161,7 +166,7 @@ export async function sha256Hex(text) {
 }
 
 // Compare two equal-length hex strings without an early exit.
-function sameHex(a, b) {
+export function sameHex(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);

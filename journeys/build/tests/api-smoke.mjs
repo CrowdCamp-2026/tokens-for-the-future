@@ -9,7 +9,7 @@ const jars = {};
 async function call(who, path, body, headers = {}) {
   const res = await fetch(B + path, {
     method: body ? "POST" : "GET",
-    headers: { "content-type": "application/json", ...(jars[who] ? { cookie: jars[who] } : {}), ...headers },
+    headers: { "content-type": "application/json", cookie: [PASS, jars[who]].filter(Boolean).join("; "), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
   const set = res.headers.get("set-cookie");
@@ -20,6 +20,24 @@ async function call(who, path, body, headers = {}) {
 }
 let fails = 0;
 const check = (label, ok, extra = "") => { console.log(`${ok ? "PASS" : "FAIL"}  ${label}${extra ? "  " + extra : ""}`); if (!ok) fails++; };
+
+// Participants-only gate. With PARTICIPANT_KEY_HASH in .dev.vars (make-participant-link.mjs --dev),
+// every request needs the pass cookie that the conference link sets.
+let PASS = "";
+const ORIGIN = new URL(B).origin;
+if ((await fetch(B + "/me")).status === 403) {
+  check("without the link, the app is closed", (await fetch(ORIGIN + "/")).status === 403);
+  check("without the link, data.json is closed", (await fetch(ORIGIN + "/data.json")).status === 403);
+  check("the privacy notice stays open", (await fetch(ORIGIN + "/privacy.html", { redirect: "follow" })).status === 200);
+  check("a wrong key is refused", (await fetch(ORIGIN + "/?k=not-the-key", { redirect: "manual" })).status === 403);
+  const key = readFileSync(new URL("../../participant-link.dev.txt", import.meta.url), "utf8").trim().split("k=")[1];
+  const res = await fetch(`${ORIGIN}/?k=${key}#platforms`, { redirect: "manual" });
+  const set = res.headers.get("set-cookie") || "";
+  PASS = set.split(";")[0];
+  check("the link sets an HttpOnly pass", res.status === 302 && /^cwj_pass=/.test(PASS) && /HttpOnly/.test(set));
+  check("the link drops the key from the address", res.headers.get("location") === "/", res.headers.get("location"));
+  check("the pass opens the app", (await fetch(ORIGIN + "/", { headers: { cookie: PASS } })).status === 200);
+} else console.log("SKIP  participants-only gate  (no PARTICIPANT_KEY_HASH in .dev.vars)");
 
 let r = await call("x", "/notes", { item_id: 269094, topic: "platforms", kind: "comment", relation: "happened", point: "hello there" });
 check("note without sign-in is refused", r.status === 401, r.data.error);
