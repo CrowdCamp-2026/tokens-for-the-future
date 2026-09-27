@@ -1,0 +1,221 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Future of Crowd Work Wall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400..600&display=block" rel="stylesheet">
+<style>
+@page { size: 11in 8.5in; margin: 0; }
+:root { --ink:#16202B; --paper:#FFFFFF; --muted:#5B6673; --rule:#A9B2BC; --then:#2C4F8E; --now:#A4541A; --tint:#F3F5F8; }
+* { box-sizing: border-box; }
+html, body { margin:0; background: var(--paper); color: var(--ink); }
+body { font-family: "Source Serif 4", Georgia, serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sheet { width: 11in; height: 8.5in; padding: 0.5in 0.55in 0.4in; display: flex; flex-direction: column; gap: 0.22in; page-break-after: always; break-after: page; overflow: hidden; }
+.eyebrow { display:flex; justify-content:space-between; font: 600 10pt/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-bottom: 1.5pt solid var(--ink); padding-bottom: 7pt; }
+h1, h2 { font-family: "Archivo", "Helvetica Neue", Arial, sans-serif; font-stretch: 112%; font-weight: 800; letter-spacing: -.015em; margin: 0; text-wrap: balance; line-height: .98; }
+h1 { font-size: 50pt; }
+h2 { font-size: 44pt; margin-top: 12pt; }
+.top { display:flex; flex-direction:column; gap: 10pt; }
+.then-now { display:grid; grid-template-columns: 1fr 1fr; gap: 0.35in; margin-top: 6pt; }
+.k { font: 600 9pt/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing:.12em; text-transform:uppercase; margin-bottom: 5pt; }
+.k13 { color: var(--then); } .k26 { color: var(--now); }
+.vision, .q { margin:0; font-size: 14.5pt; line-height: 1.32; }
+.vision { font-style: italic; color: #2A3440; }
+.q { font-family: "Archivo", "Helvetica Neue", Arial, sans-serif; font-weight: 600; }
+.q.big { font-size: 18pt; max-width: 7.5in; }
+.zones { flex: 1; display:grid; grid-template-columns: repeat(3, 1fr); gap: 0.18in; min-height: 0; }
+.zones.one { grid-template-columns: 1fr; }
+.zone { border: 2pt dashed var(--rule); border-radius: 6pt; padding: 10pt 12pt; display:flex; flex-direction:column; gap: 3pt; background: var(--paper); }
+.zl { font-family: "Archivo", "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 17pt; text-transform: uppercase; letter-spacing: .04em; }
+.zh { font-size: 11pt; color: var(--muted); font-style: italic; }
+footer { display:flex; justify-content:space-between; font: 500 8pt/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing:.06em; color: var(--muted); }
+.new .eyebrow span:first-child { color: var(--now); }
+.new h2 { color: var(--now); }
+.cover { gap: 0.2in; }
+.cover h1 { margin-top: 10pt; }
+.ask { font-size: 16pt; line-height: 1.35; margin: 0; max-width: 8.6in; }
+.ask em { color: var(--then); }
+.how { display:grid; grid-template-columns: repeat(3, 1fr); gap: 0.25in; }
+.how div { display:flex; gap: 9pt; align-items: flex-start; font-size: 12pt; line-height: 1.3; }
+.how b { flex: none; width: 24pt; height: 24pt; border-radius: 50%; background: var(--ink); color: var(--paper); display:grid; place-items:center; font: 700 12pt/1 "Archivo", Arial, sans-serif; }
+.map { display:grid; grid-template-columns: 1.1fr 1fr 1fr 1fr; gap: 0.25in; background: var(--tint); padding: 10pt 14pt; border-radius: 6pt; }
+.mk { font: 600 8.5pt/1 "IBM Plex Mono", monospace; letter-spacing:.12em; text-transform: uppercase; color: var(--then); margin-bottom: 5pt; }
+.mnew .mk { color: var(--now); }
+.map ol { margin:0; padding-left: 18pt; font: 500 10.5pt/1.35 "Archivo", Arial, sans-serif; font-variant-numeric: tabular-nums; }
+blockquote { margin: auto 0 0; border-left: 3pt solid var(--now); padding-left: 12pt; font-size: 12pt; font-style: italic; line-height: 1.35; max-width: 8.8in; }
+cite { display:block; margin-top: 4pt; font: 500 8.5pt/1 "IBM Plex Mono", monospace; font-style: normal; letter-spacing:.06em; color: var(--muted); }
+</style></head><body>
+<section class="sheet cover">
+  <div class="eyebrow"><span>CrowdCamp 2026 · HCOMP + CI · Alexandria, VA</span><span>Start here</span></div>
+  <h1>The Future of Crowd Work,<br>13 years later</h1>
+  <p class="ask">In 2013, a paper born at CrowdCamp asked: <em>“Can we foresee a future crowd workplace in which we would want our children to participate?”</em> It set out twelve research areas. Help us score them.</p>
+  <div class="how">
+    <div><b>1</b><span>Take one dot for each sheet.</span></div>
+    <div><b>2</b><span>On each sheet, put your dot in the zone that fits best: <i>Happened</i>, <i>AI changed it</i> or <i>Still open</i>.</span></div>
+    <div><b>3</b><span>Add a sticky note if you want to say why, or name what’s missing on the last sheet.</span></div>
+  </div>
+  <div class="map"><div class="mcol"><div class="mk">Work process</div><ol start="1"><li>Workflow</li><li>Task assignment</li><li>Hierarchy</li><li>Real-time response</li><li>Synchronous collaboration</li><li>Quality control</li></ol></div><div class="mcol"><div class="mk">Computation</div><ol start="7"><li>Crowds guiding AIs</li><li>AIs guiding crowds</li><li>Platforms</li></ol></div><div class="mcol"><div class="mk">Workers</div><ol start="10"><li>Job design</li><li>Reputation and credentials</li><li>Motivation and rewards</li></ol></div><div class="mcol mnew"><div class="mk">New in 2026</div><ol start="13"><li>Governance and the social contract</li></ol></div></div>
+  <blockquote>“Hybrid combinations of workers and artificial intelligence that seek to build collective intelligence may instead lead to mechanized workers or human-imitating machines.”<cite>Kittur et al., The Future of Crowd Work, CSCW 2013</cite></blockquote>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Work process</span><span>01 / 13</span></div>
+    <h2>Workflow</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Break complex work into subtasks, manage the dependencies between them, and assemble the results.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">One person with agentic AI now matches a hackathon team of five. Do we still need to decompose work across people?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Work process</span><span>02 / 13</span></div>
+    <h2>Task assignment</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Match workers to tasks that fit their skills and interests, so requesters get speed and workers stay steadily employed.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">When agents take most tasks, what is left to assign to people, and who decides?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Work process</span><span>03 / 13</span></div>
+    <h2>Hierarchy</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Crowd teams with managers and reviewers, so groups can take on large, complex work.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">Who manages whom when a team includes agents?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Work process</span><span>04 / 13</span></div>
+    <h2>Real-time response</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Crowds on call that respond within seconds for work that cannot wait.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">Models answer instantly. When do we still need people on call?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Work process</span><span>05 / 13</span></div>
+    <h2>Synchronous collaboration</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Strangers build rapport fast enough to work together on a task within an hour.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">If one person with AI can do a team&#x27;s work, why do we still work together?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Work process</span><span>06 / 13</span></div>
+    <h2>Quality control</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Keep work quality high, including for open-ended and expert tasks where no gold standard exists.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">Who catches the AI&#x27;s failures, and how do teams agree on how far to trust its output?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Computation</span><span>07 / 13</span></div>
+    <h2>Crowds guiding AIs</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">People do the work AI systems cannot yet do. The paper warned that workers “may end up training machines to replace them.”</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">Did they? And who now holds the harness when AI fails, bug-bounty style?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Computation</span><span>08 / 13</span></div>
+    <h2>AIs guiding crowds</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Software steers crowd work, catching errors before they spread through the crowd.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">AI now leads much of the work. Where do people still steer?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Computation</span><span>09 / 13</span></div>
+    <h2>Platforms</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">New platforms that reshape the relationship between workers and requesters.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">Labs and model providers are the new platforms. What do workers get from them?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Workers</span><span>10 / 13</span></div>
+    <h2>Job design</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Work that builds skills and meaning, well beyond dull piecework dressed up as a game.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">What work next to AI would we be proud to see our children do?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Workers</span><span>11 / 13</span></div>
+    <h2>Reputation and credentials</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Lasting, portable reputation, like references and work histories in traditional firms.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">How do you build a track record when an AI did half the work?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet">
+  <header class="top">
+    <div class="eyebrow"><span>Workers</span><span>12 / 13</span></div>
+    <h2>Motivation and rewards</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Rewards matched to workers’ diverse motives and ambitions, beyond small payments per task.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">What should overseeing AI pay, and what happens when tokens cost what they really cost?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Happened</div><div class="zh">It came true, more or less</div></div><div class="zone"><div class="zl">AI changed it</div><div class="zh">AI reshaped or replaced it</div></div><div class="zone"><div class="zl">Still open</div><div class="zh">Unsolved and it still matters</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet new">
+  <header class="top">
+    <div class="eyebrow"><span>New in 2026</span><span>13 / 13</span></div>
+    <h2>Governance and the social contract</h2>
+    <div class="then-now">
+      <div><div class="k k13">2013 vision</div><p class="vision">Missing from the 2013 framework. Proposed at this CrowdCamp: a social contract between people, technology and the environment, and collective action as a counterweight to AI.</p></div>
+      <div><div class="k k26">2026 question</div><p class="q">Who writes that contract? Can crowds organize the way labor unions once did?</p></div>
+    </div>
+  </header>
+  <div class="zones"><div class="zone"><div class="zl">Put it on the agenda</div><div class="zh">HCOMP + CI should take this on</div></div><div class="zone"><div class="zl">Covered already</div><div class="zh">Other work handles it</div></div><div class="zone"><div class="zl">Not our field</div><div class="zh">Leave it to others</div></div></div>
+  <footer><span>One dot per person</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section>
+<section class="sheet missing">
+  <header class="top">
+    <div class="eyebrow"><span>Your turn</span><span>Last sheet</span></div>
+    <h2>What’s missing?</h2>
+    <p class="q big">Which research area should the next thirteen years of HCOMP and CI take on? Write one per sticky note.</p>
+  </header>
+  <div class="zones one"><div class="zone"><div class="zl">Sticky notes here</div><div class="zh">One idea per note</div></div></div>
+  <footer><span>Anyone can add</span><span>The Future of Crowd Work, 13 years later · CrowdCamp 2026 · after Kittur et al., CSCW 2013</span></footer>
+</section></body></html>
