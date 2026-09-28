@@ -1,3 +1,5 @@
+import { freshPseudo } from "./_pseudos.js";
+
 // Shared helpers. Sessions, contact normalisation and IP hashing are ported from
 // the computational-diplomacy workshop app (Tsinghua SEM, Geneva, Sept 2026).
 
@@ -80,6 +82,7 @@ export const clearAdminCookieHeader = request => `${ADMIN_COOKIE}=; Path=/; Http
 // See functions/_middleware.js.
 export const PASS_COOKIE = "cwj_pass";
 export const passCookieHeader = (request, value) => `${PASS_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=${MAX_AGE}`;
+export const clearPassCookieHeader = request => `${PASS_COOKIE}=; Path=/; HttpOnly; SameSite=Lax${secure(request)}; Max-Age=0`;
 
 // Access tokens. Organizers send each willing participant a personal token in
 // a Slack DM. The super admin generates them in batches from the console and
@@ -169,9 +172,37 @@ export async function currentParticipant(request, env) {
   return p && !p.erased_at ? p : null;
 }
 
-export const publicParticipant = p => ({
-  pseudo: p.pseudo, name: p.name, affiliation: p.affiliation, contact: p.contact, contact_kind: p.contact_kind, follow_up: !!p.follow_up,
-});
+// What the participant's own device gets back. The token is the identity: no
+// name, affiliation or contact is asked for any more.
+export const publicParticipant = p => ({ pseudo: p.pseudo });
+
+// The participant behind an access token, created with a fresh pseudonym the
+// first time the token is entered. The same token on another device finds the
+// same participant. An erased participant is unlinked from its token
+// (invite_id NULL), so entering the token again starts a new one.
+export async function participantForInvite(env, inviteId) {
+  const find = () => env.DB.prepare("SELECT * FROM participant WHERE invite_id = ?1 AND erased_at IS NULL").bind(inviteId).first();
+  const at = new Date().toISOString();
+  const existing = await find();
+  if (existing) {
+    await env.DB.prepare("UPDATE participant SET last_seen_at = ?1 WHERE id = ?2").bind(at, existing.id).run();
+    return { participant: existing, returning: true };
+  }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const p = { id: crypto.randomUUID(), invite_id: inviteId, pseudo: await freshPseudo(env.DB) };
+    try {
+      await env.DB.prepare("INSERT INTO participant (id, invite_id, pseudo, last_seen_at) VALUES (?1, ?2, ?3, ?4)")
+        .bind(p.id, inviteId, p.pseudo, at).run();
+      return { participant: p, returning: false };
+    } catch (e) {
+      if (!/UNIQUE/i.test(String(e?.message))) throw e;
+      // Two devices entered the same token at once, or the pseudonym was just taken.
+      const raced = await find();
+      if (raced) return { participant: raced, returning: true };
+    }
+  }
+  throw new Error("Could not finish signing you in. Try again.");
+}
 
 // ---------------------------------------------------------------------------
 // Contacts. THE CONTACT IS THE IDENTITY: typing the same email or number on

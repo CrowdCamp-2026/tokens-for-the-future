@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260928b">
+<link rel="stylesheet" href="styles.css?v=20260928c">
 </head>
 <body>
 <header class="appbar"><a class="appbar-title" href="./">Tokens of the Future</a><span class="appbar-who" id="appbar-who"></span></header>
@@ -19,8 +19,9 @@
   <p class="unofficial">An independent project by CrowdCamp 2026 participants. It is not an official app of HCOMP + CI 2026 or SIGCHI. The official program is at <a href="https://programs.sigchi.org/ci/2026">programs.sigchi.org</a>.</p>
 
   <ul class="pledge">
-    <li><b>Your details stay with the CrowdCamp team.</b> Nothing you give us is sold or handed to sponsors, conference organizers or anyone else.</li>
-    <li><b>Other participants see only your worker name.</b> You get a pseudonym at sign-up, like “Calibrated Cartographer”, and can change it. Notes are shown to signed-in participants only. Your name, affiliation and email or phone number are seen by the CrowdCamp team only.</li>
+    <li><b>We ask for nothing about you.</b> Your access token is all you need: no name, affiliation, email or phone number.</li>
+    <li><b>Other participants see only your worker name.</b> You get a pseudonym when you first enter your token, like “Calibrated Cartographer”, and can change it or ask for another. Notes are shown to signed-in participants only.</li>
+    <li><b>What we hold stays with the CrowdCamp team.</b> Nothing is sold or handed to sponsors, conference organizers or anyone else.</li>
   </ul>
 
   <h3>Who is responsible</h3>
@@ -40,20 +41,18 @@
 
   <h3>What this is for</h3>
   <p>The tool plans a route through the conference around one of thirteen questions and collects participants’ notes on the talks: comments, questions, criticisms, how each talk relates to the question, and when people think they will live in that future.</p>
-  <p>The CrowdCamp team may analyze the notes and quote them in a report or paper about the future of crowd work. Quotes are published without names, affiliations or pseudonyms.</p>
+  <p>The CrowdCamp team may analyze the notes and quote them in a report or paper about the future of crowd work. Quotes are published without pseudonyms or anything that points to you.</p>
 
   <h3>What is collected</h3>
   <ul>
-    <li><b>Your name and affiliation.</b> Seen by the CrowdCamp team only. Other participants see your pseudonym instead.</li>
-    <li><b>Your pseudonym</b>, chosen at random when you sign up. You can change it in “Your details”. Shown next to the notes you post, including earlier ones when you change it.</li>
-    <li><b>Your email address or phone number.</b> Used to sign you back in, and to contact you if you ticked the follow-up box. Never shown on the site. Within the team, only the lead organizer can see it.</li>
+    <li><b>Your access token.</b> The organizers keep a private list of who they sent each token to on Slack, to resend or revoke one. The site stores only a fingerprint (hash) of each token, how many times it was entered and when first.</li>
+    <li><b>Your pseudonym</b>, chosen at random the first time you enter your token. You can change it, or ask for another, in “Your details”. Shown next to the notes you post, including earlier ones when you change it.</li>
     <li><b>Your notes and answers</b>: the text you write, the kind of note, how the talk relates to your topic, and your answer on timing.</li>
-    <li><b>A keyed hash of your IP address</b>, never the address itself. It limits how many notes arrive from one network in a few minutes, and it is shown to no one.</li>
-    <li><b>Your country</b> as reported by the network, used to preselect the phone country code.</li>
-    <li><b>Your access token.</b> The organizers keep a list of who they sent each token to on Slack, to resend or revoke one. The site stores only a fingerprint (hash) of each token, how many times it was entered and when first. It does not link your token to your name, notes or pseudonym.</li>
+    <li><b>A keyed hash of your IP address</b> on each note, never the address itself. It limits how many notes arrive from one network in a few minutes, and it is shown to no one.</li>
     <li><b>A session cookie</b> that keeps you signed in for up to five days, and <b>a pass cookie</b> that remembers you entered your access token. Both are strictly necessary and do no tracking.</li>
     <li><b>On your device only</b>: the talks you star. This stays in your browser and never reaches us.</li>
   </ul>
+  <p><b>What the organizers can tell.</b> Your token signs you in, so the site links your pseudonym and notes to your token’s number. Together with their list of who got which token, the three organizers could tell which notes are yours. They do not look this up to read or judge notes; the list is for sending, resending and revoking tokens. Other participants cannot make this link.</p>
 
   <h3>What is not collected</h3>
   <p>No analytics, no advertising, no tracking pixels and no social-media buttons. The page loads its typefaces from Google Fonts, which sees your IP address when it serves them.</p>
@@ -63,13 +62,13 @@
 
   <h3>Your choices</h3>
   <ul>
-    <li><b>Erase your details yourself</b>, at any time, from “Your details” once signed in. Your name, affiliation, pseudonym and contact are deleted and cannot be recovered. Your notes stay on the site as “Anonymous”.</li>
+    <li><b>Erase your details yourself</b>, at any time, from “Your details” once signed in. Your pseudonym is deleted and your notes are unlinked from your token, so nobody, the organizers included, can tell they were yours. Your notes stay on the site as “Anonymous”. Your token still opens the app, as a new participant.</li>
     <li><b>Sign out</b> on a shared device from the same page.</li>
     <li>Ask the team to remove a note, or anything else, at the contact above.</li>
   </ul>
 
   <h3>How long it is kept</h3>
-  <p>Names, affiliations and contacts are deleted by 31 March 2027. Notes are kept after that without names, for the report or paper. Cloudflare keeps database backups for up to 30 days, so erased details leave the backups within 30 days.</p>
+  <p>By 31 March 2027 the organizers delete their token list and the site unlinks every note from its token. Notes are kept after that, anonymous, for the report or paper. Cloudflare keeps database backups for up to 30 days, so erased details leave the backups within 30 days.</p>
 </main>
 </body>
 </html>

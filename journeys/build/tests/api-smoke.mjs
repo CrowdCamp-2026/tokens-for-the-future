@@ -55,7 +55,7 @@ check("the pass opens the app", await opensApp(PASS));
 check("tokens are read in any case, without hyphens", (await enter(t2.token.toLowerCase().replace(/-/g, " "))).res.status === 200);
 res = await fetch(`${ORIGIN}/?t=${t3.token}#platforms`, { redirect: "manual" });
 const linkPass = (res.headers.get("set-cookie") || "").split(";")[0];
-check("the token's link sets a pass and drops the token from the address", res.status === 302 && res.headers.get("location") === "/" && await opensApp(linkPass), res.headers.get("location"));
+check("the token's link sets a pass and drops the token from the address", res.status === 302 && res.headers.get("location") === "/?new" && await opensApp(linkPass), res.headers.get("location"));
 res = await fetch(ORIGIN + "/api/access", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `token=${encodeURIComponent(t2.token)}`, redirect: "manual" });
 check("the locked page's form works", res.status === 303 && res.headers.get("location") === "/");
 check("revoking needs the super admin", (await post("/admin", { revoke_invite: t3.id }, ADMIN)).status === 403);
@@ -69,19 +69,31 @@ const after = await (await fetch(B + "/admin?invites", { headers: SUPER })).json
 check("counts used and revoked tokens", after.used >= 3 && after.revoked >= 1, JSON.stringify(after));
 
 
+// Participants: the access token is the identity. No name, affiliation or contact.
+const T = (await (await post("/admin", { generate_invites: 6 }, SUPER)).json()).invites;
+async function signIn(who, token) {
+  const res = await post("/access", { token });
+  const cookies = res.headers.getSetCookie();
+  jars[who] = cookies.map(c => c.split(";")[0]).join("; ");
+  return { status: res.status, data: await res.json().catch(() => ({})), cookies };
+}
 let r = await call("x", "/notes", { item_id: 269094, topic: "platforms", kind: "comment", relation: "happened", point: "hello there" });
-check("note without sign-in is refused", r.status === 401, r.data.error);
-r = await call("x", "/join", { name: "A", affiliation: "", contact: "nope" });
-check("join validates name", r.status === 400, r.data.error);
-r = await call("a", "/join", { name: "Ada Test", affiliation: "UNIGE", contact: " Ada.Test@Example.org ", follow_up: true });
-check("join with email", r.status === 200 && r.data.participant.contact === "ada.test@example.org", r.data.participant?.contact);
+check("a pass alone cannot post a note", r.status === 401, r.data.error);
+r = await signIn("a", T[0].token);
 const adaPseudo = r.data.participant?.pseudo;
-check("sign-up assigns a themed pseudonym", /^[A-Z][\w-]+ [A-Z]\w+$/.test(adaPseudo || ""), adaPseudo);
-check("cookie is HttpOnly", /HttpOnly/.test(r.set || ""));
+check("a token signs in a new participant with a themed pseudonym", r.status === 200 && r.data.returning === false && /^[A-Z][\w-]+ [A-Z]\w+$/.test(adaPseudo || ""), adaPseudo);
+check("sign-in sets an HttpOnly session and pass", r.cookies.length === 2 && r.cookies.every(c => /HttpOnly/.test(c))
+  && r.cookies.some(c => c.startsWith("cwj_session=")) && r.cookies.some(c => c.startsWith("cwj_pass=")));
+check("nothing personal is returned", Object.keys(r.data.participant || {}).join() === "pseudo", JSON.stringify(r.data.participant));
 r = await call("a", "/me");
-check("me knows who is signed in", r.data.participant?.name === "Ada Test" && r.data.participant?.pseudo === adaPseudo);
-r = await call("a2", "/join", { name: "Ada Test", affiliation: "UNIGE", contact: "ada.test@example.org" });
-check("returning person keeps their pseudonym", r.data.returning === true && r.data.participant.pseudo === adaPseudo);
+check("me knows who is signed in", r.data.participant?.pseudo === adaPseudo);
+r = await signIn("a2", T[0].token.toLowerCase());
+check("the same token on another device is the same person", r.data.returning === true && r.data.participant?.pseudo === adaPseudo);
+res = await fetch(`${ORIGIN}/?t=${T[5].token}`, { redirect: "manual" });
+check("a first sign-in by link lands with ?new", res.status === 302 && res.headers.get("location") === "/?new", res.headers.get("location"));
+res = await fetch(`${ORIGIN}/?t=${T[5].token}`, { redirect: "manual" });
+check("a returning sign-in by link lands without it", res.headers.get("location") === "/", res.headers.get("location"));
+check("the old sign-up with name and email is gone", (await call("x", "/join", { name: "Ada Test", affiliation: "UNIGE", contact: "ada@example.org" })).status !== 200);
 r = await call("a", "/notes", { item_id: 269094, topic: "platforms", kind: "criticism", relation: "happened",
   point: "MTurk already lost to AI annotation", why: "Budgets moved to LLM labeling", evidence: "The panel cites the sunset date", horizon_months: 0, horizon_note: "It is here" });
 check("post a three-part note, already happened", r.status === 201 && r.data.note.horizon_months === 0, r.data.error || "");
@@ -89,15 +101,13 @@ r = await call("x", "/notes?topic=platforms");
 check("notes are for signed-in participants only", r.status === 401, r.data.error);
 r = await call("a2", "/notes?topic=platforms");
 const n = r.data.notes?.[0] || {};
-check("notes show the pseudonym only", n.author === adaPseudo && !("affiliation" in n));
-check("notes never expose the name", !JSON.stringify(r.data).includes("Ada Test") && !JSON.stringify(r.data).includes("UNIGE"));
-check("notes never expose a contact", !JSON.stringify(r.data).includes("example.org"));
+check("notes show the pseudonym only", n.author === adaPseudo && !("participant_id" in n));
+check("notes never expose a token", !JSON.stringify(r.data).includes(T[0].token));
 check("summary counts 'already happened'", r.data.summary?.horizon?.["0"] === 1);
 check("parts stored separately", n.point && n.why && n.evidence);
-r = await call("b", "/join", { name: "Bo", affiliation: "ETH", dial: "41", number: "079 123 45 67" });
-const bo = r.data.participant?.contact, boPseudo = r.data.participant?.pseudo;
-r = await call("y", "/join", { name: "Bo", affiliation: "ETH", contact: "0041 79 123 45 67" });
-check("national and international phone forms are one person", bo === "+41791234567" && r.data.returning === true, `${bo} returning=${r.data.returning}`);
+r = await signIn("b", T[1].token);
+const boPseudo = r.data.participant?.pseudo;
+check("each token is its own participant", !!boPseudo && boPseudo !== adaPseudo);
 const timing = h => call("b", "/notes", { item_id: 269094, topic: "platforms", kind: "comment", relation: "still_open", point: `Timing ${h}`, horizon_months: h });
 r = await timing(61);
 check("timing accepts 'more than 5 years'", r.status === 201 && r.data.note.horizon_months === 61, r.data.error || "");
@@ -115,7 +125,6 @@ check("someone else's pseudonym is taken", (await free(boPseudo)).available === 
 check("a look-alike of it is taken too", (await free(boPseudo.toLowerCase().replace(/ /g, "-"))).available === false, boPseudo.toLowerCase().replace(/ /g, "-"));
 check("your own pseudonym in other case is free", (await free(adaPseudo.toUpperCase())).available === true);
 check("'Anonymous' is kept", (await free("Anonymous")).available === false);
-check("your real name is refused", /real name/.test((await free("ada test")).error || ""));
 check("symbols only are refused", (await free("!!")).available === false);
 const newPseudo = `Quiet Heron ${Date.now() % 100000}`;
 check("a new name is free", (await free(newPseudo)).available === true);
@@ -124,61 +133,36 @@ check("change the pseudonym", r.status === 200 && r.data.participant.pseudo === 
 r = await call("a", "/me");
 check("me shows the new pseudonym", r.data.participant?.pseudo === newPseudo);
 r = await call("a", "/notes?topic=platforms");
-check("earlier notes show the new pseudonym", r.data.notes?.[0]?.author === newPseudo, r.data.notes?.[0]?.author);
+check("earlier notes show the new pseudonym", r.data.notes?.find(x => x.point.startsWith("MTurk"))?.author === newPseudo);
 r = await call("a", "/pseudo", { pseudo: boPseudo });
 check("taking someone else's pseudonym is refused", r.status === 409, r.data.error);
 r = await call("a", "/pseudo?draw=1");
 check("draw suggests a free themed name", !!r.data.pseudo && (await free(r.data.pseudo)).available === true, r.data.pseudo);
 
-// Signing back in with only the email or phone
-r = await call("a3", "/signin", { contact: " ADA.TEST@example.org" });
-check("sign back in by email keeps name and pseudonym", r.status === 200 && r.data.participant.name === "Ada Test" && r.data.participant.pseudo === newPseudo, r.data.error || "");
-r = await call("a3", "/me");
-check("signed back in on the new device", r.data.participant?.pseudo === newPseudo);
-r = await call("b2", "/signin", { dial: "41", number: "079 123 45 67" });
-check("sign back in by phone", r.status === 200 && r.data.participant.pseudo === boPseudo, r.data.error || "");
-r = await call("z", "/signin", { contact: "nobody-here@example.org" });
-check("unknown email is told to sign up", r.status === 404, r.data.error);
-r = await call("z", "/signin", { contact: "not an email" });
-check("sign-in validates the contact", r.status === 400);
+// Signing out, and back in with the token
+r = await call("a2", "/logout", {});
+check("sign-out clears the session and the pass", r.status === 200 && /cwj_session=;/.test(r.set || "") && /cwj_pass=;/.test(r.set || ""), r.set);
+r = await signIn("a3", T[0].token);
+check("the token signs back in, with the changed pseudonym", r.data.returning === true && r.data.participant?.pseudo === newPseudo);
 
 r = await call("a", "/erase", { confirm: "someone" });
-check("erase needs the right name", r.status === 400);
-r = await call("a", "/erase", { confirm: "ada test" });
-check("erase with own name", r.status === 200 && r.data.notes_kept === 1);
+check("erase needs the right pseudonym", r.status === 400);
+r = await call("a", "/erase", { confirm: newPseudo.toLowerCase() });
+check("erase with own pseudonym", r.status === 200 && r.data.notes_kept === 1, r.data.error || "");
 r = await call("b", "/notes?topic=platforms");
 const erasedNote = r.data.notes?.find(x => x.point.startsWith("MTurk")) || {};
 check("erased note shows as anonymous", erasedNote.author === null);
 r = await call("a", "/me");
 check("erased person is signed out", r.data.participant === null);
-r = await call("z", "/signin", { contact: "ada.test@example.org" });
-check("an erased person cannot sign back in", r.status === 404);
-r = await call("x", "/join", { name: "Ada Again", affiliation: "UNIGE", contact: "ada.test@example.org" });
-check("same email after erase starts a new record", r.data.returning === false);
+r = await signIn("a4", T[0].token);
+check("after erasure the token starts a new participant", r.status === 200 && r.data.returning === false && r.data.participant?.pseudo !== newPseudo);
 const bypass = (await fetch(B + "/dev/login", { redirect: "manual" })).status !== 404;
 r = await call("x", "/admin?table=participants");
 if (bypass) console.log("SKIP  admin export needs the token  (DEV_BYPASS is on)");
 else check("admin export needs the token", r.status === 403);
 r = await call("x", "/admin?table=participants", null, SUPER);
-check("admin participants export", typeof r.data === "string" && r.data.includes("follow_up") && r.data.includes("+41791234567"));
-// Editing your own details
-r = await call("ed", "/join", { name: "Edith Test", affiliation: "EPFL", contact: "edith.test@example.org" });
-const edPseudo = r.data.participant?.pseudo;
-r = await call("nobody", "/me", { name: "X Y", affiliation: "Z", contact: "x@example.org" });
-check("editing needs sign-in", r.status === 401);
-r = await call("ed", "/me", { name: "Edith Q. Test", affiliation: "ETH Zurich", contact: "edith.test@example.org", follow_up: true });
-check("edit name, affiliation and follow-up", r.status === 200 && r.data.participant.name === "Edith Q. Test" && r.data.participant.affiliation === "ETH Zurich" && r.data.participant.follow_up === true);
-check("editing keeps the pseudonym", r.data.participant.pseudo === edPseudo);
-r = await call("ed", "/me", { name: "Edith Q. Test", affiliation: "ETH Zurich", dial: "41", number: "079 123 45 67" });
-check("cannot take someone else's contact", r.status === 409, r.data.error);
-r = await call("ed", "/me", { name: "E", affiliation: "ETH Zurich", contact: "edith.new@example.org" });
-check("edit validates the name", r.status === 400);
-r = await call("ed", "/me", { name: "Edith Q. Test", affiliation: "ETH Zurich", contact: "Edith.New@Example.org" });
-check("change email", r.status === 200 && r.data.participant.contact === "edith.new@example.org");
-r = await call("ed2", "/join", { name: "Edith Q. Test", affiliation: "ETH Zurich", contact: "edith.new@example.org" });
-check("sign in with the new email finds the same person", r.data.returning === true && r.data.participant.pseudo === edPseudo);
-r = await call("ed3", "/join", { name: "Edith Old", affiliation: "EPFL", contact: "edith.test@example.org" });
-check("the old email no longer leads to the record", r.data.returning === false && r.data.participant.pseudo !== edPseudo);
+check("participants export has token numbers and nothing personal", typeof r.data === "string" && r.data.includes("token_number")
+  && !/contact|affiliation|follow_up|country/.test(r.data.split("\r\n")[0]), r.data.split("\r\n")[0]);
 
 // Feedback on the app: admins only
 r = await call("nobody", "/feedback");
@@ -226,12 +210,9 @@ r = await call("x", "/admin?whoami", null, ADMIN);
 check("admin token is recognised", r.data.role === "admin", r.data.email);
 r = await call("x", "/admin?whoami", null, { authorization: "Bearer not-a-real-token" });
 check("a wrong token is refused", r.status === 403);
-r = await call("x", "/admin?table=participants&format=json", null, SUPER);
-check("super admin sees contacts", r.data.rows.some(p => "contact" in p));
 r = await call("x", "/admin?table=participants&format=json", null, ADMIN);
-check("admin does not see contacts", r.data.rows.length > 0 && r.data.rows.every(p => !("contact" in p) && !("contact_kind" in p)));
-r = await call("x", "/admin?table=participants", null, ADMIN);
-check("admin's CSV has no contacts", typeof r.data === "string" && !r.data.includes("@") && !r.data.includes("contact"));
+check("admins see pseudonyms and token numbers only", r.data.rows.length > 0
+  && r.data.rows.every(p => !("contact" in p) && !("name" in p) && !("affiliation" in p) && "token_number" in p));
 r = await call("x", "/admin", { feedback_id: fid, status: "done" }, ADMIN);
 check("an admin (not only super) can set feedback status", r.status === 204);
 

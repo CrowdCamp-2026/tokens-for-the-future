@@ -30,17 +30,18 @@ curl -sL https://files.sigchi.org/conference/program/CI/2026 -o build/program.js
 
 ## Sign-in
 
-A splash page asks for **name, affiliation, and an email or phone number** (with a country picker), plus an optional follow-up consent. Ported from the computational-diplomacy workshop app (Tsinghua SEM, Geneva, 9 Sept 2026):
+**The access token is the identity.** Nothing personal is asked: no name, affiliation, email or phone number.
 
-- **Signing back in**: “Signed up before” on the splash page asks only for the email or phone number, and brings back the name, affiliation, pseudonym and notes (`POST /api/signin`). Signing up again with the same contact also works, and updates the name and affiliation. After signing out, the splash page opens on “Signed up before”.
-- The contact is the identity: the same email or number on another device signs back in. National and international phone forms (`079…`, `+41 79…`, `0041 79…`) are one person. Contacts are not verified, which is the accepted limit of a no-password tool.
-- A signed, HttpOnly session cookie lasts five days. IPs are stored only as keyed hashes.
-- “Your details” lets people **edit** their name, affiliation, email or phone and follow-up consent (`POST /api/me`; the pseudonym stays, and a contact already used by another sign-in is refused), sign out, or erase themselves by typing their name: name, affiliation, pseudonym and contact are deleted; notes stay as “Anonymous”.
-- `site/privacy.html` describes exactly this. **Before launch, fill in the organizer contact and confirm the retention date (31 March 2027).**
+- Entering the token (on the locked page, or through its link `/?t=…`) signs the person in. The first time, it creates a participant with a random pseudonym and lands on the home page with `?new`, which shows a welcome with **Suggest another** and **Choose my own**. The same token on another device, or after signing out, brings back the same participant (`participant.invite_id`, migration `0009`).
+- “Your details” shows the pseudonym (change it, or have another suggested), signs out (clears both cookies, so the token is needed again), and **erases**: typing the pseudonym deletes it and unlinks the participant from the token, so the organizers’ token list no longer leads to those notes. The notes stay as “Anonymous”, and the token then starts a new participant.
+- Revoking a token (console) signs that person out everywhere within 15 seconds: the gate checks the pass, which names the token.
+- A signed, HttpOnly session cookie lasts five days. IPs are stored only as keyed hashes, on notes, for rate limits.
+- The console shows each participant’s pseudonym and token number (the first column of the token CSV), never on the notes table. `site/privacy.html` says plainly that the organizers could match notes to people through their token list. **Delete the token CSV and unlink tokens (`UPDATE participant SET invite_id = NULL`) by 31 March 2027**, as the notice promises.
+- The `name`, `affiliation` and `contact` columns stay in `participant` for older rows only; nothing writes them.
 
 ## Participants only
 
-The whole app (pages, `data.json`, the API) is closed to anyone without a **personal access token**. The organizers send one to each willing participant in a Slack DM. The locked page asks for it; the DM can also carry a link, `/?t=<token>`. Either sets a signed, HttpOnly pass cookie for five days (the link then redirects to the same page without the token, so it does not stay in the address bar). After that the person signs up as before; the token is not tied to their participant record. Without a pass, a participant session or an admin token, every request gets the "for conference participants" page (or a JSON 403 from the API).
+The whole app (pages, `data.json`, the API) is closed to anyone without a **personal access token**. The organizers send one to each willing participant in a Slack DM. The locked page asks for it; the DM can also carry a link, `/?t=<token>`. Either sets a signed, HttpOnly pass cookie for five days (the link then redirects to the same page without the token, so it does not stay in the address bar). Entering it also signs the person in (see Sign-in). Without a pass, a participant session or an admin token, every request gets the "for conference participants" page (or a JSON 403 from the API).
 
 A token is 24 characters from 32 symbols (digits 2–9, letters without I and O), 120 random bits, shown in groups of four: `K7QM-3XWP-9HTC-VD2R-6NBF-JAYE`. It is read in any case, with or without hyphens or spaces.
 
@@ -92,8 +93,8 @@ Each admin has a **personal token** and a role:
 
 | Role | Can see and do |
 | --- | --- |
-| `admin` | Feedback and statuses, notes and hide/restore, participants' names, affiliations and follow-up consent |
-| `super` | All of the above, plus participants' email and phone numbers (console and CSV) |
+| `admin` | Feedback and statuses, notes and hide/restore, participants' pseudonyms and token numbers, how many access tokens are used |
+| `super` | All of the above, plus generating and revoking access tokens |
 
 The server keeps only the SHA-256 of each token, in the `ADMIN_TOKENS` secret (JSON list of `{email, role, hash}`), and enforces roles itself. Generate or rotate all tokens at once; old ones stop working when the new secret is set:
 

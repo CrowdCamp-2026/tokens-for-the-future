@@ -27,8 +27,7 @@ const invite = superToken && (await (await fetch(BASE + "/api/admin", {
 await send("Page.navigate", { url: BASE + "/" }); await sleep(2000);
 await shot("0-locked.png");
 await send("Page.navigate", { url: invite ? `${BASE}/?t=${invite.token}` : BASE + "/" }); await sleep(3000);
-await shot("1-splash.png");
-await ev(`document.getElementById('j-name').value='Ada Lovelace'; document.getElementById('j-aff').value='University of Geneva'; document.getElementById('j-email').value='ada.ui@example.org'; document.getElementById('join-form').requestSubmit()`);
+await shot("1-welcome.png");  // signed in by the token link, with the new-pseudonym welcome
 await sleep(1500);
 await send("Page.navigate", { url: BASE + "/#platforms" }); await sleep(2500);
 await ev(`document.querySelector('.day').scrollIntoView(); window.scrollBy(0, -60)`); await sleep(300);

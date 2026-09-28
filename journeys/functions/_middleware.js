@@ -2,8 +2,10 @@
 //   - a pass cookie, set when someone enters their personal access token on the
 //     locked page (POST /api/access) or opens its link (?t=…); it names the
 //     token's invite, so revoking a token ends its passes,
-//   - a participant session (someone who already signed in),
 //   - an admin token or admin cookie.
+// Entering the token also signs the person in: the token is the identity, and
+// the first time it creates a participant with a random pseudonym. No name,
+// affiliation or contact is asked for.
 // Organizers send each willing participant a token in a Slack DM. The super
 // admin generates them in the console; see the access tokens in api/_lib.js.
 //
@@ -11,7 +13,7 @@
 // localhost the gate stays off until a token is generated.
 import {
   requireSecret, signSession, verifySession, readCookie, adminIdentity, PASS_COOKIE, passCookieHeader,
-  inviteState, findInvite, countInviteUse,
+  cookieHeader, devBypass, inviteState, findInvite, countInviteUse, participantForInvite, publicParticipant,
 } from "./api/_lib.js";
 
 // Reachable without a token: the privacy notice, the stylesheet the locked page
@@ -43,7 +45,10 @@ export async function onRequest({ request, env, next, waitUntil }) {
     url.searchParams.delete("t");
     const clean = url.pathname + url.search;
     const invite = await findInvite(env, token);
-    if (invite) return redirect(clean, await grant(request, env, secret, invite, waitUntil));
+    if (invite) {
+      const { cookies, returning } = await grant(request, env, secret, invite, waitUntil);
+      return redirect(returning ? clean : withNew(clean), cookies);
+    }
     return (await allowed(request, env, secret, state)) ? redirect(clean) : locked(url, "bad");
   }
   return (await allowed(request, env, secret, state)) ? next() : locked(url);
@@ -55,28 +60,44 @@ async function enter(request, env, secret, waitUntil) {
   const body = json ? await request.json().catch(() => ({})) : Object.fromEntries(await request.formData().catch(() => new FormData()));
   const invite = await findInvite(env, body?.token);
   if (!invite) return locked(new URL(request.url), "bad", json);
-  const cookie = await grant(request, env, secret, invite, waitUntil);
-  return json
-    ? new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "cache-control": "no-store", "Set-Cookie": cookie } })
-    : new Response(null, { status: 303, headers: { Location: "/", "cache-control": "no-store", "Set-Cookie": cookie } });
+  const { cookies, participant, returning } = await grant(request, env, secret, invite, waitUntil);
+  const headers = new Headers({ "cache-control": "no-store" });
+  for (const c of cookies) headers.append("Set-Cookie", c);
+  if (!json) {
+    headers.set("Location", returning ? "/" : withNew("/"));
+    return new Response(null, { status: 303, headers });
+  }
+  headers.set("content-type", "application/json");
+  return new Response(JSON.stringify({ ok: true, returning, participant: publicParticipant(participant) }), { headers });
 }
 
+// The pass for the gate, and a session for the participant behind the token.
 async function grant(request, env, secret, invite, waitUntil) {
   const count = countInviteUse(env, invite.id);
   if (waitUntil) waitUntil(count); else await count;
-  return passCookieHeader(request, await signSession({ inv: invite.id }, secret));
+  const { participant, returning } = await participantForInvite(env, invite.id);
+  const cookies = [
+    passCookieHeader(request, await signSession({ inv: invite.id }, secret)),
+    cookieHeader(request, await signSession({ pid: participant.id }, secret)),
+  ];
+  return { cookies, participant, returning };
 }
+
+// A first-time sign-in lands with ?new, so the app can welcome them and offer another pseudonym.
+const withNew = path => path + (path.includes("?") ? "&" : "?") + "new";
 
 async function allowed(request, env, secret, state) {
   const pass = await verifySession(readCookie(request, PASS_COOKIE), secret);
   if (Number.isInteger(pass?.inv) && !state.revoked.has(pass.inv)) return true;
-  if ((await verifySession(readCookie(request), secret))?.pid) return true;
+  if (devBypass(request, env) && (await verifySession(readCookie(request), secret))?.pid) return true;  // /api/dev/login, localhost only
   return !!(await adminIdentity(request, env, { allowDev: false }));
 }
 
-const redirect = (location, cookie) => new Response(null, {
-  status: 302, headers: { Location: location, "cache-control": "no-store", ...(cookie ? { "Set-Cookie": cookie } : {}) },
-});
+function redirect(location, cookies = []) {
+  const headers = new Headers({ Location: location, "cache-control": "no-store" });
+  for (const c of cookies) headers.append("Set-Cookie", c);
+  return new Response(null, { status: 302, headers });
+}
 
 const MESSAGES = {
   closed: "Tokens of the Future is for HCOMP + CI 2026 participants. Enter the access token the organizers sent you in a Slack message.",
@@ -118,7 +139,8 @@ function locked(url, why = "closed", asJson = url.pathname.startsWith("/api/")) 
   <div class="eyebrow"><span>HCOMP + CI 2026 · Alexandria, VA</span><span>Sep 28–30</span></div>
   <h2 class="topic-title">For conference participants</h2>
   <p class="unofficial">An independent project by CrowdCamp 2026 participants. It is not an official app of HCOMP + CI 2026 or SIGCHI.</p>
-  <p class="lede">${esc(MESSAGES[why])}</p>${form}
+  <p class="lede">${esc(MESSAGES[why])}</p>${form}${why === "unset" ? "" : `
+  <p class="fine">Tokens of the Future routes you through the conference by one of 13 questions on the future of crowd work. This week you are the crowd and we are your requesters: your token is all you need, on any device, and other participants see only a pseudonym. By continuing you accept the <a href="/privacy.html">privacy notice</a>, which says what we owe you.</p>`}
   <p><a href="/privacy.html">Privacy notice</a></p>
 </main>
 </body>

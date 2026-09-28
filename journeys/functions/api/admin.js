@@ -51,13 +51,14 @@ const csvCell = v => {
 const QUERIES = {
   notes: {
     sql: `SELECT n.id, n.created_at, n.item_id, n.topic, n.kind, n.relation, n.horizon_months, n.horizon_note,
-                 n.point, n.why, n.evidence, n.participant_id, p.pseudo, p.name, p.affiliation, n.hidden
+                 n.point, n.why, n.evidence, n.participant_id, p.pseudo, n.hidden
             FROM notes n LEFT JOIN participant p ON p.id = n.participant_id ORDER BY n.id`,
     file: "crowdwork-notes.csv",
   },
   participants: {
-    // Contacts only for the super admin; enforced here, not only in the console.
-    sql: who => `SELECT id, created_at, last_seen_at, pseudo, name, affiliation,${who.role === "super" ? " contact, contact_kind," : ""} follow_up, country, erased_at,
+    // The access token is the identity: its number (first column of the token CSV)
+    // is how organizers can match a participant to the person they sent it to.
+    sql: `SELECT id, created_at, last_seen_at, pseudo, invite_id AS token_number, erased_at,
                  (SELECT COUNT(*) FROM notes WHERE participant_id = participant.id) AS notes
             FROM participant ORDER BY created_at`,
     file: "crowdwork-participants.csv",

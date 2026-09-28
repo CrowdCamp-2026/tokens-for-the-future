@@ -137,7 +137,6 @@
     const stat = (n, label) => `<div><b>${n}</b><span>${label}</span></div>`;
     $("c-stats").innerHTML = [
       stat(people.length, "people signed in"),
-      stat(people.filter(p => p.follow_up).length, "agreed to follow-up"),
       stat(rows.notes.filter(n => !n.hidden).length, "notes on talks"),
       stat(rows.feedback.filter(f => f.status === "open" && !f.hidden).length, "open feedback"),
       ...(invites ? [stat(`${invites.used} / ${invites.total}`, "access tokens used")] : []),
@@ -166,24 +165,19 @@
         `<td>${esc(RELATION[n.relation] || n.relation)}</td>`,
         `<td class="nowrap">${esc(horizon(n.horizon_months))}${n.horizon_note ? `<div class="sub">${esc(n.horizon_note)}</div>` : ""}</td>`,
         `<td class="wide"><b>${esc(n.point)}</b>${n.why ? `<div>Why: ${esc(n.why)}</div>` : ""}${n.evidence ? `<div>From the talk: ${esc(n.evidence)}</div>` : ""}</td>`,
-        `<td>${esc(n.pseudo || "Anonymous")}<div class="sub">${esc([n.name, n.affiliation].filter(Boolean).join(", "))}</div></td>`,
+        `<td>${esc(n.pseudo || "Anonymous")}</td>`,
         `<td class="nowrap">${esc(when(n.created_at))}</td>`,
         `<td><button class="btn ghost small" type="button" data-hide="${n.id}" data-hidden="${n.hidden ? 1 : 0}">${n.hidden ? "Restore" : "Hide"}</button></td>`,
       ],
       rowClass: n => (n.hidden ? "muted" : ""),
     },
     participants: {
-      // The server only sends contacts to the super admin.
-      cols: () => ["Pseudonym", "Name", "Affiliation", ...(role === "super" ? ["Contact"] : []), "Follow-up", "Country", "Notes", "Joined", "Last seen"],
+      cols: ["Pseudonym", "Token no.", "Notes", "Joined", "Last seen"],
       row: p => p.erased_at
-        ? [`<td colspan="${role === "super" ? 6 : 5}"><i>Erased ${esc(when(p.erased_at))}</i></td>`, `<td class="num">${p.notes}</td>`, `<td class="nowrap">${esc(when(p.created_at))}</td>`, `<td></td>`]
+        ? [`<td colspan="2"><i>Erased ${esc(when(p.erased_at))}</i></td>`, `<td class="num">${p.notes}</td>`, `<td class="nowrap">${esc(when(p.created_at))}</td>`, `<td></td>`]
         : [
           `<td>${esc(p.pseudo || "")}</td>`,
-          `<td>${esc(p.name)}</td>`,
-          `<td>${esc(p.affiliation)}</td>`,
-          ...(role === "super" ? [`<td class="nowrap">${esc(p.contact)}</td>`] : []),
-          `<td>${p.follow_up ? "Yes" : "No"}</td>`,
-          `<td>${esc(p.country || "")}</td>`,
+          `<td class="num">${esc(p.token_number ?? "")}</td>`,
           `<td class="num">${p.notes}</td>`,
           `<td class="nowrap">${esc(when(p.created_at))}</td>`,
           `<td class="nowrap">${esc(when(p.last_seen_at))}</td>`,
@@ -198,7 +192,7 @@
     const list = rows[tab].filter(r => !q || JSON.stringify(r).toLowerCase().includes(q)
       || (tab === "notes" && (items[r.item_id]?.title || "").toLowerCase().includes(q)));
     const cols = typeof def.cols === "function" ? def.cols() : def.cols;
-    const note = tab === "participants" && role !== "super" ? `<p class="fine c-note">Email and phone numbers are visible to the super admin only.</p>` : "";
+    const note = tab === "participants" ? `<p class="fine c-note">The token number is the first column of the token CSV. Erased participants are no longer linked to theirs.</p>` : "";
     $("c-table").innerHTML = note + (list.length
       ? `<table><thead><tr>${cols.map(c => `<th scope="col">${c}</th>`).join("")}</tr></thead>
          <tbody>${list.map(r => `<tr class="${def.rowClass?.(r) || ""}">${def.row(r).join("")}</tr>`).join("")}</tbody></table>
