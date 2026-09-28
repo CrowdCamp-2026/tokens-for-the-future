@@ -27,18 +27,21 @@ export async function onRequest({ request, env, next, waitUntil }) {
   const url = new URL(request.url);
   if (OPEN.some(re => re.test(url.pathname))) return next();
 
+  let secret = null;
+  try { secret = requireSecret(request, env); } catch { /* locked below */ }
+  // A token is always checked against the database itself, never against the
+  // cached state, so a batch works the moment it is generated.
+  const token = url.searchParams.get("t");
+  if (secret && url.pathname === "/api/access" && request.method === "POST") return enter(request, env, secret, waitUntil);
+
   const state = await inviteState(env);
-  if (!state.any) {
+  if (!state.any && token === null) {
     // Before any token exists, admins can still use and check the app.
     if (isLocal(url) || await adminIdentity(request, env, { allowDev: false })) return next();
     return locked(url, "unset");
   }
-  let secret;
-  try { secret = requireSecret(request, env); } catch { return locked(url, "unset"); }
+  if (!secret) return locked(url, "unset");
 
-  if (url.pathname === "/api/access" && request.method === "POST") return enter(request, env, secret, waitUntil);
-
-  const token = url.searchParams.get("t");
   if (token !== null) {
     // Take the token out of the address bar, so it does not end up in history,
     // screenshots or links people copy from the app.
@@ -119,7 +122,7 @@ function locked(url, why = "closed", asJson = url.pathname.startsWith("/api/")) 
     <label class="lbl" for="t">Access token</label>
     <input type="text" id="t" name="token" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" required autofocus>
     <button class="btn wide" type="submit">Open the app</button>
-    <p class="fine">No token yet? Ask the CrowdCamp organizers on the conference Slack.</p>
+    <p class="fine">Paste the token, or the whole link, from your Slack message. No token yet? Ask the CrowdCamp organizers on the conference Slack.</p>
   </form>`;
   return new Response(`<!doctype html>
 <html lang="en">

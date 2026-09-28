@@ -103,7 +103,14 @@ export function newAccessToken() {
 }
 
 // The canonical form hashed and compared: upper case, letters and digits only.
-export const normaliseToken = s => String(s ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+// A whole pasted link (…/?t=TOKEN) counts as its token, and 1 and I, which
+// tokens never contain, are read as L. Stored hashes are unaffected.
+export const normaliseToken = s => {
+  let t = String(s ?? "");
+  const link = t.match(/[?&]t=([^&#\s]+)/);
+  if (link) t = link[1];
+  return t.toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/[1I]/g, "L");
+};
 export const tokenHash = s => sha256Hex(normaliseToken(s));
 
 // The invite a typed or linked token belongs to, or null (unknown or revoked).
