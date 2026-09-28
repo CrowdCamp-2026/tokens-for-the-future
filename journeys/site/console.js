@@ -50,10 +50,11 @@
   async function unlock(v) {
     setToken(v);
     try {
-      await Promise.all([loadProgram(), loadAll()]);
-      // Also sign this browser in as admin for the app (the feedback box).
+      // Sign this browser in as admin first: the admin cookie lets it past the
+      // participants-only gate (data.json) and turns on the app's feedback box.
       const who = await (await admin("", { method: "POST", body: JSON.stringify({ login: true }) })).json();
       role = who.role;
+      await Promise.all([loadProgram(), loadAll()]);
       await loadInvites();
       $("locked").hidden = true;
       $("appbar-who").textContent = `${who.email} · ${who.role === "super" ? "Super admin" : "Admin"}`;

@@ -26,7 +26,11 @@ export async function onRequest({ request, env, next, waitUntil }) {
   if (OPEN.some(re => re.test(url.pathname))) return next();
 
   const state = await inviteState(env);
-  if (!state.any) return isLocal(url) ? next() : locked(url, "unset");
+  if (!state.any) {
+    // Before any token exists, admins can still use and check the app.
+    if (isLocal(url) || await adminIdentity(request, env, { allowDev: false })) return next();
+    return locked(url, "unset");
+  }
   let secret;
   try { secret = requireSecret(request, env); } catch { return locked(url, "unset"); }
 
