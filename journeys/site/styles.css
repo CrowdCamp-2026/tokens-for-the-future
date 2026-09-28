@@ -342,7 +342,7 @@ body.console main { max-width: 1180px; }
 .c-links { margin-top: 18px; padding: 16px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
 .c-links > .fine { margin-top: 6px; max-width: 70ch; }
 .c-links-new { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0 4px; }
-.c-links .c-links-new input { flex: 1 1 260px; width: auto; max-width: 420px; }
+.c-links .c-links-new input { flex: 0 0 7em; width: 7em; }
 .c-links-list { display: grid; gap: 12px; margin-top: 12px; }
 .c-link { display: grid; grid-template-columns: 180px 1fr; gap: 18px; align-items: start; padding: 14px; background: var(--chip); border: 1px solid var(--rule); border-radius: 10px; }
 .c-link .lbl { margin-top: 0; }

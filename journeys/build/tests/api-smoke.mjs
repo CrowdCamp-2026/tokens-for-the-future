@@ -21,76 +21,53 @@ async function call(who, path, body, headers = {}) {
 let fails = 0;
 const check = (label, ok, extra = "") => { console.log(`${ok ? "PASS" : "FAIL"}  ${label}${extra ? "  " + extra : ""}`); if (!ok) fails++; };
 
-// Participants-only gate. The key lives in D1; the super admin reads and resets it.
-// This creates one if there is none, so the local app is closed afterwards too
-// (open it from the link in /console).
+// Participants-only gate: personal access tokens, sent by Slack DM. The super
+// admin generates them; the server keeps only their hashes. This generates a
+// batch, so the local app is closed afterwards too (enter a token from /console's CSV).
 const ORIGIN = new URL(B).origin;
 const post = (path, body, headers) => fetch(B + path, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
-const resetLink = async () => (await (await post("/admin", { reset_participant_link: true }, SUPER)).json()).link;
-const openLink = async l => {
-  const res = await fetch(l.replace(/^https?:\/\/[^/]+/, ORIGIN) + "#platforms", { redirect: "manual" });
-  return { res, set: res.headers.get("set-cookie") || "" };
-};
-let link = (await (await fetch(B + "/admin?participant_link", { headers: SUPER })).json()).link || await resetLink();
-check("the super admin gets the link, with a 43-character key", /\/\?k=[\w-]{43}$/.test(link || ""), link);
-check("an admin cannot read the participant link", (await fetch(B + "/admin?participant_link", { headers: ADMIN })).status === 403);
-check("an admin cannot reset it", (await post("/admin", { reset_participant_link: true }, ADMIN)).status === 403);
-check("without the link, the app is closed", (await fetch(ORIGIN + "/")).status === 403);
-check("without the link, data.json is closed", (await fetch(ORIGIN + "/data.json")).status === 403);
-check("without the link, the API is closed", (await fetch(B + "/me")).status === 403);
-check("the privacy notice stays open", (await fetch(ORIGIN + "/privacy.html")).status === 200);
-check("a wrong key is refused", (await fetch(ORIGIN + "/?k=not-the-key", { redirect: "manual" })).status === 403);
-let { res, set } = await openLink(link);
-let PASS = set.split(";")[0];
-check("the link sets an HttpOnly pass", res.status === 302 && /^cwj_pass=/.test(PASS) && /HttpOnly/.test(set));
-check("the link drops the key from the address", res.headers.get("location") === "/", res.headers.get("location"));
-check("the pass opens the app", (await fetch(ORIGIN + "/", { headers: { cookie: PASS } })).status === 200);
-const oldLink = link, oldPass = PASS;
-link = await resetLink();
-check("a reset gives a new key", link && link !== oldLink);
-check("after a reset, the old link is refused", (await openLink(oldLink)).res.status === 403);
-check("after a reset, the old pass is refused", (await fetch(ORIGIN + "/", { headers: { cookie: oldPass } })).status === 403);
-({ res, set } = await openLink(link));
-PASS = set.split(";")[0];
-check("the new link opens the app", res.status === 302 && (await fetch(ORIGIN + "/", { headers: { cookie: PASS } })).status === 200);
-
-// Several links (up to 5), each with its own key, label and QR code.
-const listLinks = async () => (await fetch(B + "/admin?participant_links", { headers: SUPER })).json();
 const opensApp = pass => fetch(ORIGIN + "/", { headers: { cookie: pass } }).then(x => x.status === 200);
-let L = await listLinks();
-check("the super admin lists the links, max 5", Array.isArray(L.links) && L.max === 5 && L.links[0]?.link === link, JSON.stringify(L).slice(0, 120));
-check("an admin cannot list the links", (await fetch(B + "/admin?participant_links", { headers: ADMIN })).status === 403);
-check("an admin cannot create a link", (await post("/admin", { create_participant_link: true, label: "Nope" }, ADMIN)).status === 403);
-let lr = await post("/admin", { create_participant_link: true, label: "  Registration poster " }, SUPER);
-L = await lr.json();
-const poster = L.links?.find(x => x.label === "Registration poster");
-check("create a labelled link", lr.status === 201 && !!poster && poster.link !== link, JSON.stringify(L.links?.map(x => x.label)));
-({ res, set } = await openLink(poster.link));
-const posterPass = set.split(";")[0];
-check("the second link opens the app too", res.status === 302 && await opensApp(posterPass));
-L = await listLinks();
-check("opening a link counts it", L.links.find(x => x.id === poster.id)?.opens === 1, String(L.links.find(x => x.id === poster.id)?.opens));
-while (L.links.length < L.max) L = await (await post("/admin", { create_participant_link: true }, SUPER)).json();
-check("unlabelled links get a default label", L.links.every(x => x.label), JSON.stringify(L.links.map(x => x.label)));
-lr = await post("/admin", { create_participant_link: true, label: "One too many" }, SUPER);
-check("a sixth link is refused", lr.status === 409 && (await lr.json()).links.length === 5);
-lr = await post("/admin", { reset_participant_link: poster.id }, SUPER);
-L = await lr.json();
-check("reset one link by id", lr.status === 200 && L.links.find(x => x.id === poster.id)?.link !== poster.link);
-check("after its reset, that link's pass is refused", !await opensApp(posterPass));
-check("the other links' passes still work", await opensApp(PASS));
-lr = await post("/admin", { rename_participant_link: L.links[0].id, label: "Conference Slack" }, SUPER);
-check("rename a link", lr.status === 200 && (await lr.json()).links[0].label === "Conference Slack");
-check("an empty label is refused", (await post("/admin", { rename_participant_link: L.links[0].id, label: " " }, SUPER)).status === 400);
-({ res, set } = await openLink(L.links.find(x => x.id === poster.id).link));
-const posterPass2 = set.split(";")[0];
-lr = await post("/admin", { delete_participant_link: poster.id }, SUPER);
-check("delete a link", lr.status === 200 && !(await lr.json()).links.some(x => x.id === poster.id));
-check("after its deletion, that link's pass is refused", !await opensApp(posterPass2));
-check("deleting an unknown link says so", (await post("/admin", { delete_participant_link: 999999 }, SUPER)).status === 404);
-for (const x of (await listLinks()).links.slice(1)) await post("/admin", { delete_participant_link: x.id }, SUPER);
-L = await listLinks();
-check("back to one link, and its pass still works", L.links.length === 1 && L.links[0].link === link && await opensApp(PASS));
+const enter = async token => {
+  const res = await post("/access", { token });
+  return { res, pass: (res.headers.get("set-cookie") || "").split(";")[0], set: res.headers.get("set-cookie") || "" };
+};
+check("an admin cannot generate tokens", (await post("/admin", { generate_invites: 3 }, ADMIN)).status === 403);
+check("a batch over 500 is refused", (await post("/admin", { generate_invites: 501 }, SUPER)).status === 400);
+let gr = await post("/admin", { generate_invites: 3 }, SUPER);
+const G = await gr.json();
+const [t1, t2, t3] = G.invites || [];
+check("the super admin generates tokens", gr.status === 201 && G.invites?.length === 3, JSON.stringify(G).slice(0, 100));
+check("tokens are 24 characters in groups of four", /^([2-9A-HJ-NP-Z]{4}-){5}[2-9A-HJ-NP-Z]{4}$/.test(t1?.token || ""), t1?.token);
+check("tokens are distinct", new Set([t1, t2, t3].map(t => t?.token)).size === 3);
+check("each token comes with its link", t1?.link === `${ORIGIN}/?t=${t1?.token}`, t1?.link);
+const stats = await (await fetch(B + "/admin?invites", { headers: ADMIN })).json();
+check("any admin sees the counts, never the tokens", stats.total >= 3 && !JSON.stringify(stats).includes(t1.token), JSON.stringify(stats));
+check("without a token, the app is closed", (await fetch(ORIGIN + "/")).status === 403);
+check("the locked page asks for the token", /name="token"/.test(await (await fetch(ORIGIN + "/")).text()));
+check("without a token, data.json is closed", (await fetch(ORIGIN + "/data.json")).status === 403);
+check("without a token, the API is closed", (await fetch(B + "/me")).status === 403);
+check("the privacy notice stays open", (await fetch(ORIGIN + "/privacy.html")).status === 200);
+check("a wrong token is refused", (await enter("AAAA-BBBB-CCCC-DDDD-EEEE-FFFF")).res.status === 403);
+check("a short token is refused", (await enter("ABC")).res.status === 403);
+let { res, pass: PASS, set } = await enter(t1.token);
+check("a token sets an HttpOnly pass", res.status === 200 && /^cwj_pass=/.test(PASS) && /HttpOnly/.test(set));
+check("the pass opens the app", await opensApp(PASS));
+check("tokens are read in any case, without hyphens", (await enter(t2.token.toLowerCase().replace(/-/g, " "))).res.status === 200);
+res = await fetch(`${ORIGIN}/?t=${t3.token}#platforms`, { redirect: "manual" });
+const linkPass = (res.headers.get("set-cookie") || "").split(";")[0];
+check("the token's link sets a pass and drops the token from the address", res.status === 302 && res.headers.get("location") === "/" && await opensApp(linkPass), res.headers.get("location"));
+res = await fetch(ORIGIN + "/api/access", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `token=${encodeURIComponent(t2.token)}`, redirect: "manual" });
+check("the locked page's form works", res.status === 303 && res.headers.get("location") === "/");
+check("revoking needs the super admin", (await post("/admin", { revoke_invite: t3.id }, ADMIN)).status === 403);
+check("revoke a token", (await post("/admin", { revoke_invite: t3.id }, SUPER)).status === 200);
+check("revoking it twice says so", (await post("/admin", { revoke_invite: t3.id }, SUPER)).status === 404);
+check("a revoked token is refused", (await enter(t3.token)).res.status === 403);
+await new Promise(r => setTimeout(r, 16000));  // the gate caches revocations for 15 seconds
+check("a revoked token's pass is refused", !await opensApp(linkPass));
+check("other passes still work", await opensApp(PASS));
+const after = await (await fetch(B + "/admin?invites", { headers: SUPER })).json();
+check("counts used and revoked tokens", after.used >= 3 && after.revoked >= 1, JSON.stringify(after));
+
 
 let r = await call("x", "/notes", { item_id: 269094, topic: "platforms", kind: "comment", relation: "happened", point: "hello there" });
 check("note without sign-in is refused", r.status === 401, r.data.error);

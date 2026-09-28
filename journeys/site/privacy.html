@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260927k">
+<link rel="stylesheet" href="styles.css?v=20260928a">
 </head>
 <body>
 <header class="appbar"><a class="appbar-title" href="./">Tokens of the Future</a><span class="appbar-who" id="appbar-who"></span></header>
@@ -24,7 +24,7 @@
   </ul>
 
   <h3>Who is responsible</h3>
-  <p>Brian McInnis, Thomas Maillart and Tony Li, who run this CrowdCamp 2026 project. Ask any of us in person at the conference, or write to [email to add before launch].</p>
+  <p>Brian McInnis, Thomas Maillart and Tony Li, who run this CrowdCamp 2026 project. Ask any of us in person at the conference, or write to <a href="mailto:[contact email: set before deploying]">[contact email: set before deploying]</a>.</p>
   <p>The site and its database are hosted by Cloudflare.</p>
 
   <h3>What we owe you as requesters</h3>
@@ -50,7 +50,8 @@
     <li><b>Your notes and answers</b>: the text you write, the kind of note, how the talk relates to your topic, and your answer on timing.</li>
     <li><b>A keyed hash of your IP address</b>, never the address itself. It limits how many notes arrive from one network in a few minutes, and it is shown to no one.</li>
     <li><b>Your country</b> as reported by the network, used to preselect the phone country code.</li>
-    <li><b>A session cookie</b> that keeps you signed in for up to five days, and <b>a pass cookie</b> that remembers you opened a participant link. Both are strictly necessary and do no tracking.</li>
+    <li><b>Your access token.</b> The organizers keep a list of who they sent each token to on Slack, to resend or revoke one. The site stores only a fingerprint (hash) of each token, how many times it was entered and when first. It does not link your token to your name, notes or pseudonym.</li>
+    <li><b>A session cookie</b> that keeps you signed in for up to five days, and <b>a pass cookie</b> that remembers you entered your access token. Both are strictly necessary and do no tracking.</li>
     <li><b>On your device only</b>: the talks you star. This stays in your browser and never reaches us.</li>
   </ul>
 

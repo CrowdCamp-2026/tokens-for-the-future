@@ -40,18 +40,19 @@ A splash page asks for **name, affiliation, and an email or phone number** (with
 
 ## Participants only
 
-The whole app (pages, `data.json`, the API) is closed to anyone who has not opened a **participant link**, shared with its QR code in the conference Slack or on a poster at the venue. Each link carries a 43-character key (`/?k=…`, 32 random bytes). Opening it sets a signed, HttpOnly pass cookie for five days and redirects to the same page without the key, so the key does not stay in the address bar or in links people copy from the app. Without a pass, a participant session or an admin token, every request gets a short "for conference participants" page (or a JSON 403 from the API).
+The whole app (pages, `data.json`, the API) is closed to anyone without a **personal access token**. The organizers send one to each willing participant in a Slack DM. The locked page asks for it; the DM can also carry a link, `/?t=<token>`. Either sets a signed, HttpOnly pass cookie for five days (the link then redirects to the same page without the token, so it does not stay in the address bar). After that the person signs up as before; the token is not tied to their participant record. Without a pass, a participant session or an admin token, every request gets the "for conference participants" page (or a JSON 403 from the API).
 
-**The super admin manages up to 5 links in the console** (`/console`, “Participant links”), one per place they are posted, each with its own key, label and QR code. For each link: rename its label, see how many times it was opened, copy the link or a ready-made Slack message, download the QR code as PNG or SVG, **reset** it or **delete** it (both take two clicks). A reset gives that link a new key; a delete removes it. Either way, that link's old address, QR code and passes stop working within 15 seconds, the other links keep working, and people already signed in stay in. Admins do not see this panel, and the API refuses them.
+A token is 24 characters from 32 symbols (digits 2–9, letters without I and O), 120 random bits, shown in groups of four: `K7QM-3XWP-9HTC-VD2R-6NBF-JAYE`. It is read in any case, with or without hyphens or spaces.
 
-API (super admin only): `GET /api/admin?participant_links` → `{links: [{id, label, link, opens, created_at, created_by}], max}`; `POST /api/admin` with `{"create_participant_link": true, "label": "…"}` (409 once there are 5), `{"reset_participant_link": <id>}`, `{"delete_participant_link": <id>}` or `{"rename_participant_link": <id>, "label": "…"}`, each answering with the list. The single-link forms still work: `GET ?participant_link` gives the oldest link and `{"reset_participant_link": true}` resets it.
+**The super admin generates tokens in the console** (`/console`, “Access tokens”): pick how many (up to 500 at a time) and download them as a CSV with the columns `number, token, link, assigned_to, slack_handle, sent_at, notes`, for whoever assigns them to fill in. **The tokens are in that file only**: the server keeps just the SHA-256 of each (`invite` table, migration `0008`), so keep the file private and out of email, shared drives and git. A lost file means generating a new batch. **Revoke** a token by its number (first column): it and the passes it gave stop working within 15 seconds; people already signed in stay in. Every admin sees how many tokens were generated, used and revoked; only the super admin can generate or revoke.
 
-- The keys live in the `participant_key` table (migration `0005`; labels and open counts from `0007`), in clear, so the console can show each link again. They are shared links posted in Slack or on paper, not personal secrets. The open count is a single number per link and says nothing about who opened it.
-- Until the super admin creates the first link, the app is locked on a real domain, and open on localhost.
-- Always open: `privacy.html`, `styles.css`, `/console` and its QR library (`vendor/qrcode.min.js`), `/api/admin` (checks admin tokens itself) and the localhost-only `/api/dev/*`.
-- A Slack card with the title around the QR code (1200×630): `node build/make-participant-card.mjs "<link from the console>"` writes `participant-card.local.png` and `participant-qr.local.svg`, both git-ignored.
-- To sign out everyone who joined through a leaked link too, also set a new `SESSION_SECRET`: everyone signs back in with their email or phone and keeps their pseudonym and notes.
-- The flyer and poster QR codes point to the bare site, which shows the locked page. To print ones that open the app, pass the link: `python3 print/build_print.py "https://…/?k=…"` (the key then shows on paper, so keep those PDFs out of git, and reprint after a reset).
+API: `GET /api/admin?invites` → `{total, used, revoked}` (any admin); `POST /api/admin {"generate_invites": n}` → `{invites: [{id, token, link}], …}` and `{"revoke_invite": <number>}` (super admin only). Participants send `POST /api/access {"token": "…"}` (the locked page's form posts the same field).
+
+- Until the super admin generates the first tokens, the app is locked on a real domain, and open on localhost.
+- Always open: `privacy.html`, `styles.css`, `/console`, `/api/admin` (checks admin tokens itself) and the localhost-only `/api/dev/*`.
+- A token counts how often it was entered (one person, several devices) and when first; nothing links it to who used it.
+- To sign out everyone who joined with a leaked token too, also set a new `SESSION_SECRET`: everyone enters their token again and signs back in with their email or phone, keeping their pseudonym and notes.
+- The flyer and poster QR codes point to the bare site, which shows the locked page asking for a token.
 
 ## Notes from attendees
 
@@ -127,7 +128,7 @@ npx wrangler d1 migrations apply crowdwork-journeys --local
 npx wrangler pages dev --port 8792
 ```
 
-Local secrets are in `.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`). The participant gate stays off locally until a participant link exists; the smoke test creates one, and after that open the app from the link in `/console?dev`.
+Local secrets are in `.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`). The participant gate stays off locally until an access token exists; the smoke test generates some, and after that enter a token (or generate one in `/console?dev`).
 
 ### Local bypass for checking pages
 
@@ -158,8 +159,8 @@ npx wrangler pages project create crowdwork-journeys --production-branch main
 node build/make-admin-tokens.mjs super:<you> admin:<a> admin:<b>
 npx wrangler pages secret put ADMIN_TOKENS --project-name crowdwork-journeys < admin-tokens.secret.json
 npx wrangler pages secret put SESSION_SECRET --project-name crowdwork-journeys   # a long random string
-npx wrangler pages deploy
-# then open https://<your-project>.pages.dev/console as the super admin and create a participant link
+npx wrangler pages deploy --branch main
+# then open https://<your-project>.pages.dev/console as the super admin and generate the access tokens (CSV)
 ```
 
 If `crowdwork-journeys.pages.dev` is taken or you pick another name, rebuild the QR codes with the real URL:

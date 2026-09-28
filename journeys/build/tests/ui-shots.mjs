@@ -17,12 +17,16 @@ const shot = async name => { const s = await send("Page.captureScreenshot", { fo
 await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 1300, deviceScaleFactor: 2, mobile: true });
 await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
 await send("Network.enable"); await send("Network.clearBrowserCookies");
-// The participants-only gate: open the app through the participant link, if one exists
-// (read with the super admin token from make-admin-tokens.mjs --dev).
+// The participants-only gate: generate one access token with the super admin token
+// from make-admin-tokens.mjs --dev, and first shoot the locked page asking for it.
 const tokens = new URL("../../admin-tokens.local.txt", import.meta.url).pathname;
 const superToken = existsSync(tokens) ? readFileSync(tokens, "utf8").split("\n").map(l => l.split("\t")).find(l => l[1] === "super")?.[2] : null;
-const link = superToken && (await (await fetch(BASE + "/api/admin?participant_link", { headers: { authorization: `Bearer ${superToken}` } })).json().catch(() => ({}))).link;
-await send("Page.navigate", { url: link ? BASE + "/?k=" + link.split("k=")[1] : BASE + "/" }); await sleep(3000);
+const invite = superToken && (await (await fetch(BASE + "/api/admin", {
+  method: "POST", headers: { authorization: `Bearer ${superToken}`, "content-type": "application/json" }, body: JSON.stringify({ generate_invites: 1 }),
+})).json().catch(() => ({}))).invites?.[0];
+await send("Page.navigate", { url: BASE + "/" }); await sleep(2000);
+await shot("0-locked.png");
+await send("Page.navigate", { url: invite ? `${BASE}/?t=${invite.token}` : BASE + "/" }); await sleep(3000);
 await shot("1-splash.png");
 await ev(`document.getElementById('j-name').value='Ada Lovelace'; document.getElementById('j-aff').value='University of Geneva'; document.getElementById('j-email').value='ada.ui@example.org'; document.getElementById('join-form').requestSubmit()`);
 await sleep(1500);
