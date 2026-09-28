@@ -5,3 +5,4 @@ build/tests/.chrome/
 build/tests/.chrome-ref/
 admin-tokens.local.txt
 admin-tokens.secret.json
+admin-tokens.production.local.txt
