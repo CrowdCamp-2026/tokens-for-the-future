@@ -60,4 +60,4 @@ Local secrets go in `journeys/.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV
 
 ## License
 
-The code is released under the [MIT License](LICENSE). Third-party material keeps its own terms: the CHI 2026 program data in `journeys/build/program.json` and `journeys/site/data.json` comes from SIGCHI under CC BY-NC-SA 4.0, and the reference captures of SIGCHI's program app in `journeys/build/refs/sigchi/` belong to SIGCHI.
+The code is released under the [MIT License](LICENSE). Third-party material keeps its own terms: the HCOMP + CI 2026 program data in `journeys/build/program.json` and `journeys/site/data.json` comes from SIGCHI under CC BY-NC-SA 4.0, and the reference captures of SIGCHI's program app in `journeys/build/refs/sigchi/` belong to SIGCHI.
