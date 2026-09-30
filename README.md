@@ -18,3 +18,7 @@ npx wrangler pages dev --port 8792
 ```
 
 Local secrets go in `journeys/.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV_BYPASS`), which is not committed. Generate admin tokens with `node build/make-admin-tokens.mjs` (see `journeys/README.md`).
+
+## License
+
+The code is released under the [MIT License](LICENSE). Third-party material keeps its own terms: the CHI 2026 program data in `journeys/build/program.json` and `journeys/site/data.json` comes from SIGCHI under CC BY-NC-SA 4.0, and the paper in `journeys/build/refs/` belongs to its authors.

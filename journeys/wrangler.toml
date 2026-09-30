@@ -2,8 +2,8 @@ name = "crowdwork-journeys"
 compatibility_date = "2026-09-01"
 pages_build_output_dir = "site"
 
-# The production database (created 28 Sep 2026 in the Thomas.maillart@gmail.com account).
-# To recreate it:
+# The app was retired on 30 Sep 2026: the Pages project and its production
+# database were deleted. The database_id below no longer exists. To deploy again:
 #   npx wrangler d1 create crowdwork-journeys
 # then paste its database_id below and run the migration with --remote.
 [[d1_databases]]

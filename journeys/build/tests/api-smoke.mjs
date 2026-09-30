@@ -2,8 +2,10 @@
 const B = (process.argv[2] || "http://127.0.0.1:8792") + "/api";
 // Personal tokens from `node build/make-admin-tokens.mjs --dev ...` (admin-tokens.local.txt).
 import { readFileSync } from "node:fs";
-const TOKENS = Object.fromEntries(readFileSync(new URL("../../admin-tokens.local.txt", import.meta.url), "utf8")
-  .split("\n").filter(l => l && !l.startsWith("#")).map(l => l.split("\t")).map(([email, role, token]) => [role, token]));
+const ISSUED = readFileSync(new URL("../../admin-tokens.local.txt", import.meta.url), "utf8")
+  .split("\n").filter(l => l && !l.startsWith("#")).map(l => l.split("\t"));
+const TOKENS = Object.fromEntries(ISSUED.map(([email, role, token]) => [role, token]));
+const SUPER_EMAIL = ISSUED.find(([, role]) => role === "super")?.[0];
 const SUPER = { authorization: `Bearer ${TOKENS.super}` }, ADMIN = { authorization: `Bearer ${TOKENS.admin}` };
 const jars = {};
 async function call(who, path, body, headers = {}) {
@@ -177,7 +179,7 @@ const fbText = `Smoke test idea ${Date.now()}`;
 r = await call("x", "/feedback", { kind: "idea", body: fbText, page: "#platforms", viewport: "390x844" }, SUPER);
 const fid = r.data.items?.find(i => i.body === fbText)?.id;
 check("an admin token can post feedback", r.status === 201 && !!fid, r.data.error || "");
-check("feedback is signed with the admin's email", r.data.items?.find(i => i.id === fid)?.author === "thomas.maillart@gmail.com");
+check("feedback is signed with the admin's email", r.data.items?.find(i => i.id === fid)?.author === SUPER_EMAIL);
 r = await call("x", "/feedback", { kind: "idea", body: "ok" }, SUPER);
 check("feedback needs a few words", r.status === 400);
 r = await call("x", "/feedback", { vote: fid }, ADMIN);
