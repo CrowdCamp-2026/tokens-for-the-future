@@ -17,7 +17,7 @@ The team (Brian McInnis, Thomas Maillart, Tony Li) set out to:
 
 **What happened to the 2013 vision.** Kittur et al. pictured crowd work as complex, creative and fulfilling: tasks divided into meaningful sequences, guilds with mentorship, fair and transparent labor markets. In practice crowd work stayed at micro-tasks. The market built around some of those ideas fell apart over politics, fairness and transparency; worker tools such as Turkopticon have few contributors left; and machine learning absorbed many of the original tasks. Requesters invested in replacing people more than in the careers the paper hoped for. MTurk itself sunsets on 30 September 2026, the last day of the conference. The team wanted to learn from that before writing a new, equally hopeful agenda that could stall the same way: stay forward-looking and hopeful, without being utopian.
 
-**What changed with generative AI.** Our working sessions (in `transcripts/`) kept returning to a few observations:
+**What changed with generative AI.** Our working sessions kept returning to a few observations:
 
 - *Humans are needed where technology fails.* Bug bounty programs show people finding what automated systems miss. AI still gets software "70 to 80% of the way", and someone has to catch failures, steer, and decide what makes sense. Teams also need ways to calibrate their trust in AI output when there is too much of it to check.
 - *One person can now match a team.* Hackathon data on GitHub suggests that individuals with agentic AI reach the productivity of small groups. That is enabling, and it also raises the question of why people should still work together, which was the heart of the 2013 paper.
@@ -44,7 +44,6 @@ The app itself, how it works and how to deploy it are described in [`journeys/RE
 
 | Folder | What it holds |
 | --- | --- |
-| `transcripts/` | Transcripts of the team's working sessions. |
 | `wall/` | The *Future of Crowd Work* wall: printable dot-voting sheets, one per research area (the 12 from 2013 plus governance), each asking whether the 2013 vision happened, was changed by AI, or is still open, and a closing “What’s missing?” sheet. HTML source and PDF. |
 | `journeys/` | **Tokens of the Future**, a Cloudflare Pages app that routes attendees through HCOMP + CI 2026 (Sep 28–30) by research area and collects their notes on talks. See [`journeys/README.md`](journeys/README.md). |
 
@@ -61,4 +60,4 @@ Local secrets go in `journeys/.dev.vars` (`ADMIN_TOKENS`, `SESSION_SECRET`, `DEV
 
 ## License
 
-The code is released under the [MIT License](LICENSE). Third-party material keeps its own terms: the CHI 2026 program data in `journeys/build/program.json` and `journeys/site/data.json` comes from SIGCHI under CC BY-NC-SA 4.0, and the paper in `journeys/build/refs/` belongs to its authors.
+The code is released under the [MIT License](LICENSE). Third-party material keeps its own terms: the CHI 2026 program data in `journeys/build/program.json` and `journeys/site/data.json` comes from SIGCHI under CC BY-NC-SA 4.0, and the reference captures of SIGCHI's program app in `journeys/build/refs/sigchi/` belong to SIGCHI.

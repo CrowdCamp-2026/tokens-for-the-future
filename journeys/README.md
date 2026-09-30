@@ -57,7 +57,7 @@ API: `GET /api/admin?invites` → `{total, used, revoked}` (any admin); `POST /a
 
 ## Notes from attendees
 
-People add a comment, question or criticism to any talk, poster or panel. The form follows *Nudge for Deliberativeness* (Menon, Zhang & Perrault, CHI 2020; PDF in `build/refs/`):
+People add a comment, question or criticism to any talk, poster or panel. The form follows *Nudge for Deliberativeness* (Menon, Zhang & Perrault, CHI 2020):
 
 - **Partitioned text fields**: point, why, and evidence from the talk, each with a sentence opener. Only the first is required. Stored separately (`point`, `why`, `evidence`).
 - **Word-count anchor**: a live bar under the fields (fills at 120 words, no limit, no instruction to fill it).
