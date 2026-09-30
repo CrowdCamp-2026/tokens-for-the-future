@@ -152,6 +152,8 @@ node build/tests/notes-shot.mjs    # what attendees see on a talk's notes
 
 ## Deploy to Cloudflare Pages (when ready)
 
+First put your own names and contact email under **Who is responsible** in `site/privacy.html`. The repo ships a placeholder there on purpose, so no one deploys with someone else's address.
+
 ```sh
 npx wrangler login
 npx wrangler d1 create crowdwork-journeys          # paste the database_id into wrangler.toml
